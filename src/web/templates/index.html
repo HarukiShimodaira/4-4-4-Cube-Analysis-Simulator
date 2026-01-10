@@ -1,0 +1,3867 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4×4×4 Cube Analysis Simulator</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #2a2a2a;
+            --bg-gradient-start: #0f0f0f;
+            --bg-gradient-end: #1a1a2e;
+            --bg-header-start: #1e1e1e;
+            --bg-header-end: #2d2d44;
+            --text-primary: #e6e8ef;
+            --text-secondary: #b8bfd8;
+            --text-muted: #8c93a8;
+            --border-color: #3a3d4a;
+            --border-color-light: #4a4e60;
+            --accent-color: #667eea;
+            --accent-hover: #5568d3;
+            --shadow-color: rgba(0,0,0,0.8);
+            --cube-bg: #34495e;
+        }
+        
+        body.light-theme {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-tertiary: #e8e8e8;
+            --bg-gradient-start: #f0f0f0;
+            --bg-gradient-end: #e0e0e0;
+            --bg-header-start: #ffffff;
+            --bg-header-end: #f8f8f8;
+            --text-primary: #121420;
+            --text-secondary: #2f3445;
+            --text-muted: #555b6e;
+            --border-color: #c7cbe0;
+            --border-color-light: #dce1f2;
+            --accent-color: #667eea;
+            --accent-hover: #5568d3;
+            --shadow-color: rgba(0,0,0,0.1);
+            --cube-bg: #b0c4de;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 0;
+            transition: all 0.3s ease;
+        }
+        
+        .container {
+            width: 100%;
+            height: 100vh;
+            margin: 0;
+            background: var(--bg-secondary);
+            box-shadow: none;
+            overflow: hidden;
+            border: none;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--bg-header-start) 0%, var(--bg-header-end) 100%);
+            color: var(--text-primary);
+            padding: 12px 24px 16px;
+            border-bottom: 2px solid var(--accent-color);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+        }
+
+        .header-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(102, 126, 234, 0.18);
+            color: #e9edff;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            font-size: 13px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        body.light-theme .header-chip {
+            background: #e5e9ff;
+            color: #1f2b5c;
+            border: 1px solid #c5cffd;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+        }
+
+        .header-sub {
+            color: var(--text-secondary);
+            font-size: 13px;
+            letter-spacing: 0.3px;
+        }
+        
+        .theme-toggle {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color);
+            border-radius: 25px;
+            padding: 6px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+            color: var(--text-primary);
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        
+        .theme-toggle:hover {
+            border-color: var(--accent-color);
+            transform: scale(1.05);
+        }
+        
+        .theme-icon {
+            width: 20px;
+            height: 20px;
+            fill: var(--text-primary);
+            stroke: var(--text-primary);
+            stroke-width: 2;
+            stroke-linecap: round;
+            transition: all 0.3s ease;
+        }
+        
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 5px;
+        }
+        
+        .subtitle {
+            opacity: 0.9;
+            font-size: 0.95em;
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-columns: 450px 1fr;
+            gap: 0;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .sidebar {
+            background: var(--bg-primary);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            overflow-y: auto;
+            height: 100%;
+            transition: all 0.3s ease;
+        }
+        
+        .content-area {
+            padding: 30px;
+            background: var(--bg-secondary);
+            transition: all 0.3s ease;
+            height: 100%;
+            overflow-y: auto;
+        }
+        
+        .button-group {
+            margin-bottom: 20px;
+        }
+        
+        .button-group h3 {
+            color: var(--text-primary);
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 8px;
+        }
+        
+        .operation-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .op-btn {
+            padding: 10px 6px;
+            border: 2px solid var(--accent-color);
+            background: var(--bg-tertiary);
+            color: var(--accent-color);
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            font-size: 0.95em;
+        }
+        
+        .op-btn:hover {
+            background: var(--accent-color);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .op-btn:active {
+            transform: translateY(0);
+        }
+        
+        .control-btn {
+            width: 100%;
+            padding: 14px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: var(--accent-color);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .interactive-menu-btn {
+            width: 100%;
+            padding: 10px 12px;
+            margin: 5px 0;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color-light);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            text-align: left;
+            transition: all 0.2s;
+        }
+        
+        .interactive-menu-btn:hover {
+            background: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+            transform: translateX(5px);
+        }
+        
+        .interactive-menu-section {
+            margin-bottom: 10px;
+        }
+        
+        .input-group {
+            margin: 15px 0;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: var(--text-primary);
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color-light);
+            border-radius: 8px;
+            font-size: 1em;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 25px;
+            border-bottom: 2px solid var(--border-color-light);
+            padding-bottom: 5px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: var(--accent-color) var(--bg-tertiary);
+            width: 100%;
+            max-width: 100%;
+        }
+        
+        .tabs::-webkit-scrollbar {
+            height: 8px;
+        }
+        
+        .tabs::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+        
+        .tabs::-webkit-scrollbar-thumb {
+            background: var(--accent-color);
+            border-radius: 4px;
+        }
+        
+        .tabs::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-hover);
+        }
+        
+        .tab {
+            padding: 14px 24px;
+            background: var(--bg-tertiary);
+            border: none;
+            border-radius: 8px 8px 0 0;
+            cursor: pointer;
+            font-size: 0.95em;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            white-space: nowrap;
+            position: relative;
+            flex-shrink: 0;
+            min-width: 150px;
+        }
+        
+        .tab:hover {
+            color: var(--accent-color);
+            background: var(--bg-secondary);
+        }
+        
+        .tab.active {
+            color: white;
+            background: var(--accent-color);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+
+        /* ステータスデッキ */
+        .status-deck {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+            height: 100%;
+        }
+        .status-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 12px;
+            align-items: stretch;
+            margin-bottom: 12px;
+        }
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        .status-row > .activity-feed,
+        .status-row > .status-deck {
+            height: 100%;
+        }
+        @media (max-width: 900px) {
+            .status-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        .status-card {
+            background: linear-gradient(135deg, rgba(102,126,234,0.12), rgba(118,75,162,0.18));
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 12px 14px;
+            box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+            color: var(--text-primary);
+        }
+        .status-card.tight {
+            padding: 10px 12px;
+        }
+        .status-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 12px;
+            align-items: stretch;
+            margin-bottom: 12px;
+        }
+        .status-row.collapsed {
+            display: none;
+        }
+        .status-row-toggle {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        .metric-value {
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(102,126,234,0.15);
+            color: #e9edff;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+
+        /* ライブ活動ログ */
+        .activity-feed {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 10px 12px;
+            margin-bottom: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            max-height: 180px;
+            overflow-y: auto;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .collapsible-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .collapse-btn {
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s, transform 0.2s;
+        }
+        .collapse-btn.icon-btn {
+            width: 34px;
+            height: 34px;
+            padding: 0;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+        }
+        .collapse-btn.icon-btn:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-color);
+        }
+        .collapse-btn.icon-btn svg {
+            width: 18px;
+            height: 18px;
+            stroke: currentColor;
+            transition: transform 0.25s ease;
+        }
+        .collapse-btn.icon-btn.collapsed svg {
+            transform: rotate(180deg);
+        }
+        .collapsible-content {
+            overflow: hidden;
+            transition: max-height 0.25s ease;
+            max-height: 1000px;
+        }
+        .collapsible.collapsed .collapsible-content {
+            max-height: 0;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        .collapsible.collapsed .collapsible-content > * {
+            display: none;
+        }
+        .activity-feed h4 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            letter-spacing: 0.2px;
+            color: var(--text-secondary);
+        }
+        .activity-item {
+            display: grid;
+            grid-template-columns: 72px 1fr;
+            gap: 6px 10px;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+        }
+        .activity-feed #activityFeedList { flex: 1; }
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        .activity-time {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .activity-body {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .activity-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .activity-pill {
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(102,126,234,0.18);
+            color: var(--text-primary);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+        .activity-message {
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+        .activity-detail {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .activity-pill.warn { background: rgba(255,193,7,0.25); color: #c48a00; }
+        .activity-pill.error { background: rgba(244,67,54,0.2); color: #c0392b; }
+        body.light-theme .activity-feed { box-shadow: 0 4px 10px rgba(0,0,0,0.06); }
+
+        /* Light theme overrides for status cards */
+        body.light-theme .status-card {
+            background: linear-gradient(135deg, #eef1ff 0%, #e6ecff 100%);
+            border: 1px solid #cfd8ff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+        body.light-theme .status-title {
+            color: #2f3445;
+        }
+        body.light-theme .status-badge {
+            background: rgba(102,126,234,0.18);
+            color: #24305e;
+            border: 1px solid #cfd8ff;
+        }
+        
+        .cube-display {
+            background: var(--bg-primary);
+            padding: 20px;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            white-space: pre;
+            overflow-x: auto;
+            line-height: 1.4;
+            border: 2px solid var(--border-color-light);
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+        
+        /* ビジュアル展開図のスタイル */
+        .visual-cube-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            border: 2px solid var(--border-color-light);
+            transition: all 0.3s ease;
+        }
+        
+        .cube-net {
+            display: inline-grid;
+            grid-template-areas:
+                ". . . . U U U U . . . . . . . ."
+                ". . . . U U U U . . . . . . . ."
+                ". . . . U U U U . . . . . . . ."
+                ". . . . U U U U . . . . . . . ."
+                "L L L L F F F F R R R R B B B B"
+                "L L L L F F F F R R R R B B B B"
+                "L L L L F F F F R R R R B B B B"
+                "L L L L F F F F R R R R B B B B"
+                ". . . . D D D D . . . . . . . ."
+                ". . . . D D D D . . . . . . . ."
+                ". . . . D D D D . . . . . . . ."
+                ". . . . D D D D . . . . . . . .";
+            gap: 3px;
+            padding: 15px;
+        }
+        
+        .face {
+            display: grid;
+            grid-template-columns: repeat(4, 45px);
+            grid-template-rows: repeat(4, 45px);
+            gap: 2px;
+        }
+        
+        .face-square {
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.75em;
+            border: 1px solid #000;
+            box-shadow: inset 0 0 3px rgba(0,0,0,0.3);
+        }
+        
+        .face-U {
+            grid-area: U;
+        }
+        
+        .face-L {
+            grid-area: L;
+        }
+        
+        .face-F {
+            grid-area: F;
+        }
+        
+        .face-R {
+            grid-area: R;
+        }
+        
+        .face-D {
+            grid-area: D;
+        }
+        
+        .face-B {
+            grid-area: B;
+        }
+        
+        .cubie {
+            width: 45px;
+            height: 45px;
+            border: 2px solid rgba(0,0,0,0.4);
+            box-shadow: inset 0 0 8px rgba(255,255,255,0.4);
+            transition: transform 0.2s;
+            border-radius: 3px;
+        }
+        
+        .cubie:hover {
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        
+        /* 色の定義 */
+        .color-W { background: #FFFFFF; }
+        .color-Y { background: #FFFF00; }
+        .color-G { background: #00FF00; }
+        .color-B { background: #0000FF; }
+        .color-R { background: #FF0000; }
+        .color-O { background: #FFA500; }
+        
+        .face-label {
+            position: absolute;
+            font-weight: bold;
+            font-size: 18px;
+            color: #ffffff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+            color: var(--text-primary);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            border: 1px solid var(--accent-color);
+            transition: all 0.3s ease;
+        }
+        
+        .stat-card h4 {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: var(--bg-primary);
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid var(--border-color-light);
+            transition: all 0.3s ease;
+        }
+        
+        .history-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+            border-left: 4px solid var(--accent-color);
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+        
+        .status-message {
+            padding: 10px 12px;
+            margin: 4px 0 2px;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            min-height: 0;
+        }
+        
+        .status-success {
+            background: #123524;
+            color: #76f7a2;
+            border: 1px solid #1f5a3a;
+        }
+
+        body.light-theme .status-success {
+            background: #d9f4e3;
+            color: #146b3a;
+            border: 1px solid #bfe7cb;
+        }
+
+        .status-error {
+            background: #3c1a1f;
+            color: #ff8080;
+            border: 1px solid #622b32;
+        }
+
+        body.light-theme .status-error {
+        .status-row.collapsed > *:not(.status-row-toggle) {
+            display: none;
+        }
+        .status-row-toggle {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+            background: #fde2e4;
+            color: #8a1f2d;
+            border: 1px solid #f6c1c7;
+        }
+
+        .status-info {
+            background: #182a40;
+            color: #7ac4ff;
+            border: 1px solid #26405f;
+        }
+
+        body.light-theme .status-info {
+            background: #dcedff;
+            color: #1f4f7a;
+            border: 1px solid #c3ddff;
+        }
+        
+        .status-solved {
+            background: #3a3a1a;
+            color: #f1c40f;
+            border: 1px solid #5a5a2d;
+            text-align: center;
+            font-size: 1.2em;
+        }
+        
+        body.light-theme .status-solved {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        #visualizationImg {
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px var(--shadow-color);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-input-label {
+            display: block;
+            padding: 14px;
+            background: #6c757d;
+            color: white;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .file-input-label:hover {
+            background: #5a6268;
+        }
+        
+        h3, h4 {
+            color: var(--text-primary);
+        }
+        
+        small {
+            color: var(--text-secondary);
+        }
+        
+        /* カスタムモーダルダイアログ */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+        }
+        
+        .modal-dialog {
+            background: var(--bg-secondary);
+            border: 2px solid var(--accent-color);
+            border-radius: 12px;
+            padding: 30px;
+            min-width: 300px;
+            max-width: 500px;
+            box-shadow: 0 10px 40px var(--shadow-color);
+            animation: modalFadeIn 0.2s ease;
+        }
+        
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .modal-title {
+            color: var(--accent-color);
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .modal-message {
+            color: var(--text-primary);
+            font-size: 1em;
+            line-height: 1.5;
+            margin-bottom: 25px;
+            white-space: pre-line;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .modal-btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .modal-btn-primary {
+            background: var(--accent-color);
+            color: white;
+        }
+        
+        .modal-btn-primary:hover {
+            background: var(--accent-hover);
+        }
+        
+        .modal-btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .modal-btn-secondary:hover {
+            background: var(--bg-primary);
+        }
+        
+        .modal-btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .modal-btn-danger:hover {
+            background: #c82333;
+        }
+        
+        /* レスポンシブデザイン: タブレット対応 */
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            
+            .sidebar {
+                border-right: none;
+                border-bottom: 2px solid var(--border-color);
+                height: auto;
+                max-height: 40vh;
+            }
+            
+            .operation-buttons {
+                grid-template-columns: repeat(6, 1fr);
+            }
+            
+            .control-panel {
+                grid-template-columns: 1fr;
+            }
+            
+            .cube-net .face-square {
+                width: 30px;
+                height: 30px;
+                font-size: 0.65em;
+            }
+        }
+        
+        /* レスポンシブデザイン: スマートフォン対応 */
+        @media (max-width: 480px) {
+            header h1 {
+                font-size: 1.3em;
+            }
+            
+            .subtitle {
+                font-size: 0.75em;
+            }
+            
+            .tabs {
+                gap: 3px;
+                padding-bottom: 3px;
+            }
+            
+            .tab {
+                padding: 10px 12px;
+                font-size: 0.8em;
+                min-width: 100px;
+            }
+            
+            .operation-buttons {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 6px;
+            }
+            
+            .op-btn {
+                padding: 8px 4px;
+                font-size: 0.85em;
+            }
+            
+            .cube-net {
+                padding: 8px;
+                gap: 2px;
+            }
+            
+            .face {
+                grid-template-columns: repeat(4, 18px);
+                grid-template-rows: repeat(4, 18px);
+                gap: 1px;
+            }
+            
+            .face-square {
+                width: 18px;
+                height: 18px;
+                font-size: 0.45em;
+            }
+            
+            .content-area {
+                padding: 15px;
+            }
+            
+            .sidebar {
+                padding: 15px;
+            }
+            
+            .visual-cube-container {
+                padding: 10px;
+                overflow-x: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-top">
+                <div class="header-title">
+                    <span class="header-chip">4×4×4 Cube Analysis Simulator</span>
+                    <span class="header-sub">Data Console</span>
+                </div>
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <svg class="theme-icon" id="themeIcon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"/>
+                        <line x1="12" y1="1" x2="12" y2="3"/>
+                        <line x1="12" y1="21" x2="12" y2="23"/>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                        <line x1="1" y1="12" x2="3" y2="12"/>
+                        <line x1="21" y1="12" x2="23" y2="12"/>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                    </svg>
+                    <span id="themeText">ライト</span>
+                </button>
+            </div>
+            <div id="statusMessage"></div>
+            <div class="status-row-toggle">
+                <button class="collapse-btn icon-btn" onclick="toggleStatusRow()" id="statusRowToggleBtn" aria-label="パネル表示切替">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+            </div>
+            <div class="status-row" id="statusRow">
+                <div class="activity-feed" id="activityFeed">
+                    <div class="collapsible-header">
+                        <h4 style="margin:0;">ライブ処理ログ</h4>
+                    </div>
+                    <div style="padding-top:8px;">
+                        <div id="activityFeedList"></div>
+                    </div>
+                </div>
+                <div class="status-deck" style="margin-bottom:0;">
+                    <div class="status-card tight" id="status-server">
+                        <div class="status-title" style="margin-bottom:6px;">
+                            <span class="status-badge">SERVER</span>
+                            <span id="serverStatusLabel">稼働中</span>
+                        </div>
+                        <div class="metric-label">エンドポイント</div>
+                        <div class="metric-value" style="font-size:13px;">http://localhost:8888</div>
+                        <div class="metric-label" style="margin-top:4px;">最終通知</div>
+                        <div class="metric-value" id="serverStatusPing">-</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="button-group">
+                    <h3>基本操作</h3>
+                    <div class="operation-buttons">
+                        <button class="op-btn" onclick="executeOp('R')">R</button>
+                        <button class="op-btn" onclick="executeOp('L')">L</button>
+                        <button class="op-btn" onclick="executeOp('U')">U</button>
+                        <button class="op-btn" onclick="executeOp('D')">D</button>
+                        <button class="op-btn" onclick="executeOp('F')">F</button>
+                        <button class="op-btn" onclick="executeOp('B')">B</button>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <h3>反時計回り</h3>
+                    <div class="operation-buttons">
+                        <button class="op-btn" onclick="executeOp('R\'')">R'</button>
+                        <button class="op-btn" onclick="executeOp('L\'')">L'</button>
+                        <button class="op-btn" onclick="executeOp('U\'')">U'</button>
+                        <button class="op-btn" onclick="executeOp('D\'')">D'</button>
+                        <button class="op-btn" onclick="executeOp('F\'')">F'</button>
+                        <button class="op-btn" onclick="executeOp('B\'')">B'</button>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <h3>Slice回転（内側2層）</h3>
+                    <div class="operation-buttons">
+                        <button class="op-btn" onclick="executeOp('r')">r</button>
+                        <button class="op-btn" onclick="executeOp('l')">l</button>
+                        <button class="op-btn" onclick="executeOp('u')">u</button>
+                        <button class="op-btn" onclick="executeOp('d')">d</button>
+                        <button class="op-btn" onclick="executeOp('f')">f</button>
+                        <button class="op-btn" onclick="executeOp('b')">b</button>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <h3>Slice反時計回り</h3>
+                    <div class="operation-buttons">
+                        <button class="op-btn" onclick="executeOp('r\'')">r'</button>
+                        <button class="op-btn" onclick="executeOp('l\'')">l'</button>
+                        <button class="op-btn" onclick="executeOp('u\'')">u'</button>
+                        <button class="op-btn" onclick="executeOp('d\'')">d'</button>
+                        <button class="op-btn" onclick="executeOp('f\'')">f'</button>
+                        <button class="op-btn" onclick="executeOp('b\'')">b'</button>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <h3>Wide回転（外側2層）</h3>
+                    <div class="operation-buttons">
+                        <button class="op-btn" onclick="executeOp('Rw')">Rw</button>
+                        <button class="op-btn" onclick="executeOp('Lw')">Lw</button>
+                        <button class="op-btn" onclick="executeOp('Uw')">Uw</button>
+                        <button class="op-btn" onclick="executeOp('Dw')">Dw</button>
+                        <button class="op-btn" onclick="executeOp('Fw')">Fw</button>
+                        <button class="op-btn" onclick="executeOp('Bw')">Bw</button>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <h3>180度回転</h3>
+                    <div class="operation-buttons">
+                        <button class="op-btn" onclick="executeOp('R2')">R2</button>
+                        <button class="op-btn" onclick="executeOp('L2')">L2</button>
+                        <button class="op-btn" onclick="executeOp('U2')">U2</button>
+                        <button class="op-btn" onclick="executeOp('D2')">D2</button>
+                        <button class="op-btn" onclick="executeOp('F2')">F2</button>
+                        <button class="op-btn" onclick="executeOp('B2')">B2</button>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <h3>Slice 180度</h3>
+                    <div class="operation-buttons">
+                        <button class="op-btn" onclick="executeOp('r2')">r2</button>
+                        <button class="op-btn" onclick="executeOp('l2')">l2</button>
+                        <button class="op-btn" onclick="executeOp('u2')">u2</button>
+                        <button class="op-btn" onclick="executeOp('d2')">d2</button>
+                        <button class="op-btn" onclick="executeOp('f2')">f2</button>
+                        <button class="op-btn" onclick="executeOp('b2')">b2</button>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label>カスタム操作列</label>
+                    <input type="text" id="sequenceInput" placeholder="例: R U R' U'">
+                    <button class="control-btn btn-primary" onclick="executeSequence()">操作列を実行</button>
+                </div>
+                
+                <div class="button-group">
+                    <h3>コントロール</h3>
+                    <button class="control-btn btn-secondary" onclick="saveState()">状態を保存 (JSON)</button>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="fileInput" accept=".json" onchange="loadState()">
+                        <label for="fileInput" class="file-input-label">状態を読込 (JSON)</label>
+                    </div>
+                    <button class="control-btn btn-primary" onclick="shuffleCube()">キューブをシャッフル</button>
+                    <button class="control-btn btn-danger" onclick="resetCube()">キューブをリセット</button>
+                </div>
+                
+                <div class="button-group">
+                    <h3>サーバー管理</h3>
+                    <button class="control-btn btn-danger" onclick="restartServer()">サーバーを再起動</button>
+                    <button class="control-btn btn-danger" onclick="killServer()">サーバーを停止</button>
+                </div>
+            </aside>
+            
+            <main class="content-area">
+                
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('state')">キューブ状態</button>
+                    <button class="tab" onclick="switchTab('3dviewer')">3Dビューア</button>
+                    <button class="tab" onclick="switchTab('inspector')">検査</button>
+                    <button class="tab" onclick="switchTab('interactive')">インタラクティブ</button>
+                    <button class="tab" onclick="switchTab('analysis')">解析</button>
+                    <button class="tab" onclick="switchTab('edgeanalysis')">エッジペア分析</button>
+                    <button class="tab" onclick="switchTab('batch')">バッチ分析</button>
+                    <button class="tab" onclick="switchTab('statistics')">統計分析</button>
+                    <button class="tab" onclick="switchTab('randomdata')">ランダムデータ収集</button>
+                    <button class="tab" onclick="switchTab('colors')">色カウント</button>
+                    <button class="tab" onclick="switchTab('visualization')">3D表示</button>
+                    <button class="tab" onclick="switchTab('history')">履歴</button>
+                </div>
+                
+                <div id="stateTab" class="tab-content active">
+                    <!-- ビジュアル展開図 -->
+                    <div class="visual-cube-container">
+                        <div class="cube-net" id="visualCubeNet">
+                            <!-- JavaScript で動的生成 -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 3Dビューアタブ -->
+                <div id="3dviewerTab" class="tab-content">
+                    <div style="padding: 20px;">
+                        <h2 style="margin-bottom: 20px; color: var(--text-primary);">リアルタイム3Dビューア</h2>
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                            <button class="control-btn btn-primary" onclick="reset3DView()" style="width: auto; padding: 10px 20px;">
+                                視点リセット
+                            </button>
+                            <button class="control-btn btn-secondary" onclick="zoom3DIn()" style="width: auto; padding: 10px 20px;">
+                                ズームイン
+                            </button>
+                            <button class="control-btn btn-secondary" onclick="zoom3DOut()" style="width: auto; padding: 10px 20px;">
+                                ズームアウト
+                            </button>
+                            <button class="control-btn btn-secondary" onclick="move3DUp()" style="width: auto; padding: 10px 20px;">
+                                上へ
+                            </button>
+                            <button class="control-btn btn-secondary" onclick="move3DDown()" style="width: auto; padding: 10px 20px;">
+                                下へ
+                            </button>
+                            <button class="control-btn btn-secondary" onclick="move3DLeft()" style="width: auto; padding: 10px 20px;">
+                                左へ
+                            </button>
+                            <button class="control-btn btn-secondary" onclick="move3DRight()" style="width: auto; padding: 10px 20px;">
+                                右へ
+                            </button>
+                        </div>
+                        <div id="threejs-container" style="width: 100%; height: 600px; background: var(--bg-primary); border-radius: 10px; border: 2px solid var(--border-color);"></div>
+                        <div style="margin-top: 15px; padding: 15px; background: var(--bg-tertiary); border-radius: 8px; color: var(--text-secondary);">
+                            <strong style="color: var(--text-primary);">操作方法:</strong> マウス/タッチドラッグで回転 | ボタンでズーム・移動 | モバイル: 2本指ピンチでズーム
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 検査タブ -->
+                <div id="inspectorTab" class="tab-content">
+                    <div style="padding: 20px;">
+                        <h2 style="margin-bottom: 20px; color: var(--text-primary);">キューブレット検査</h2>
+                        
+                        <div style="display: grid; grid-template-columns: 300px 1fr; gap: 20px;">
+                            <!-- 左側: メニュー -->
+                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: 10px; height: fit-content;">
+                                <h3 style="margin-bottom: 15px; color: var(--accent-color);">検査メニュー</h3>
+                                
+                                <button class="control-btn btn-primary" onclick="loadAllCubelets()" style="margin-bottom: 15px;">
+                                    全キューブレット情報
+                                </button>
+                                
+                                <h4 style="color: var(--text-primary); margin: 20px 0 10px 0; font-size: 0.95em;">エッジペア検査</h4>
+                                <p style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 10px;">
+                                    ペアIDを選択して詳細を表示
+                                </p>
+                                
+                                <select id="edgePairSelector" style="width: 100%; padding: 10px; border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); margin-bottom: 10px;">
+                                    <option value="">選択してください...</option>
+                                </select>
+                                
+                                <button class="control-btn btn-primary" onclick="inspectSelectedPair()">
+                                    ペア詳細検査
+                                </button>
+                                
+                                <div style="margin-top: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid var(--accent-color);">
+                                    <h4 style="color: var(--text-primary); margin-bottom: 8px; font-size: 0.9em;">ヒント</h4>
+                                    <ul style="color: var(--text-secondary); font-size: 0.8em; line-height: 1.6; margin-left: 20px;">
+                                        <li>全56個のキューブレットの座標・回転を確認</li>
+                                        <li>エッジペアの距離変化を追跡</li>
+                                        <li>回転角度と回転軸を詳細表示</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <!-- 右側: 結果表示 -->
+                            <div id="inspectorResults" style="background: var(--bg-tertiary); padding: 25px; border-radius: 10px; min-height: 500px;">
+                                <div style="text-align: center; color: var(--text-secondary); padding: 60px 20px;">
+                                    <h3 style="margin-bottom: 10px;">検査機能へようこそ</h3>
+                                    <p>左のメニューから検査を開始してください</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- インタラクティブモードタブ -->
+                <div id="interactiveTab" class="tab-content">
+                    <div style="padding: 20px;">
+                        <h2 style="margin-bottom: 20px; color: var(--text-primary);">インタラクティブモード</h2>
+                        
+                        <div style="display: grid; grid-template-columns: 250px 1fr; gap: 20px;">
+                            <!-- 左側: メニュー -->
+                            <div style="background: var(--bg-tertiary); padding: 20px; border-radius: 10px;">
+                                <h3 style="margin-bottom: 15px; color: var(--accent-color);">機能メニュー</h3>
+                                
+                                <div class="interactive-menu-section">
+                                    <h4 style="color: var(--text-primary); margin: 15px 0 10px 0; font-size: 0.9em;">基本操作</h4>
+                                    <button class="interactive-menu-btn" onclick="interactiveAction('show_state')">キューブの状態表示</button>
+                                    <button class="interactive-menu-btn" onclick="interactiveAction('execute_single')">操作を実行</button>
+                                    <button class="interactive-menu-btn" onclick="interactiveAction('execute_sequence')">連続操作実行</button>
+                                    <button class="interactive-menu-btn" onclick="interactiveAction('reset')">リセット</button>
+                                </div>
+                                
+                                <div class="interactive-menu-section">
+                                    <h4 style="color: var(--text-primary); margin: 15px 0 10px 0; font-size: 0.9em;">表示</h4>
+                                    <button class="interactive-menu-btn" onclick="interactiveAction('show_history')">操作履歴</button>
+                                    <button class="interactive-menu-btn" onclick="switchTab('3dviewer')">3D表示</button>
+                                </div>
+                                
+                                <div class="interactive-menu-section">
+                                    <h4 style="color: var(--text-primary); margin: 15px 0 10px 0; font-size: 0.9em;">解析</h4>
+                                    <button class="interactive-menu-btn" onclick="interactiveAction('analyze_edges')">エッジペア解析</button>
+                                    <button class="interactive-menu-btn" onclick="switchTab('batch')">バッチ解析</button>
+                                    <button class="interactive-menu-btn" onclick="interactiveAction('position_info')">位置情報詳細</button>
+                                </div>
+                                
+                                <div class="interactive-menu-section">
+                                    <h4 style="color: var(--text-primary); margin: 15px 0 10px 0; font-size: 0.9em;">ファイル</h4>
+                                    <button class="interactive-menu-btn" onclick="saveState()">保存 (JSON)</button>
+                                    <button class="interactive-menu-btn" onclick="document.getElementById('fileInput').click()">読込 (JSON)</button>
+                                    <button class="interactive-menu-btn" onclick="downloadBatchExcel()">Excel出力</button>
+                                </div>
+                                
+                                <div class="interactive-menu-section">
+                                    <h4 style="color: var(--text-primary); margin: 15px 0 10px 0; font-size: 0.9em;">ヘルプ</h4>
+                                    <button class="interactive-menu-btn" onclick="interactiveAction('operations_list')">全操作リスト</button>
+                                    <button class="interactive-menu-btn" onclick="interactiveAction('help')">ヘルプ</button>
+                                </div>
+                            </div>
+                            
+                            <!-- 右側: 出力エリア -->
+                            <div style="background: var(--bg-secondary); padding: 20px; border-radius: 10px; border: 1px solid var(--border-color);">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                    <h3 style="color: var(--accent-color);">実行結果</h3>
+                                    <button class="control-btn btn-secondary" onclick="clearInteractiveOutput()" 
+                                            style="width: auto; padding: 8px 15px; font-size: 0.9em;">
+                                        クリア
+                                    </button>
+                                </div>
+                                <div id="interactiveOutput" style="
+                                    background: var(--bg-primary); 
+                                    padding: 20px; 
+                                    border-radius: 8px; 
+                                    min-height: 500px;
+                                    max-height: 600px;
+                                    overflow-y: auto;
+                                    font-family: 'Courier New', monospace;
+                                    font-size: 0.95em;
+                                    line-height: 1.6;
+                                    color: var(--text-secondary);
+                                    white-space: pre-wrap;
+                                    border: 1px solid var(--border-color);
+                                ">
+インタラクティブモードへようこそ！
+左のメニューから機能を選択してください。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="analysisTab" class="tab-content">
+                    <div class="stats-grid" id="statsGrid">
+                        <div class="stat-card">
+                            <h4>完成度</h4>
+                            <div class="value" id="completionRate">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <h4>完成エッジペア</h4>
+                            <div class="value" id="pairedEdges">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <h4>正しいコーナー</h4>
+                            <div class="value" id="correctCorners">-</div>
+                        </div>
+                        <div class="stat-card">
+                            <h4>総操作数</h4>
+                            <div class="value" id="totalMoves">-</div>
+                        </div>
+                    </div>
+                    
+                    <h3 style="margin-top: 30px; margin-bottom: 15px;">詳細解析</h3>
+                    <div class="cube-display" id="detailedAnalysis">-</div>
+                </div>
+                
+                <div id="edgeanalysisTab" class="tab-content">
+                    <button class="control-btn btn-primary" onclick="loadEdgeAnalysis()" style="margin-bottom: 20px;">エッジペア分析を実行</button>
+                    <div id="edgeAnalysisContent">
+                        <p style="text-align: center; color: var(--text-secondary);">上のボタンをクリックして分析を開始</p>
+                    </div>
+                </div>
+                
+                <div id="batchTab" class="tab-content">
+                    <h3 style="margin-bottom: 20px;">バッチ分析（複数トライアルの統計）</h3>
+                    
+                    <div class="input-group">
+                        <label>トライアル数</label>
+                        <input type="number" id="numTrials" value="100" min="1" max="1000">
+                        <small style="color: var(--text-secondary);">1-1000の範囲で指定</small>
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>最小操作数</label>
+                        <input type="number" id="minOps" value="15" min="1" max="200">
+                    </div>
+                    
+                    <div class="input-group">
+                        <label>最大操作数</label>
+                        <input type="number" id="maxOps" value="30" min="1" max="200">
+                    </div>
+                    
+                    <button class="control-btn btn-primary" onclick="runBatchAnalysis()">バッチ分析を実行</button>
+                    
+                    <div id="batchProgress" style="margin-top: 20px; display: none;">
+                        <div style="text-align: center; color: #667eea; font-weight: bold;">
+                            <div class="loading" style="margin-bottom: 10px;">分析中...</div>
+                            <p>この処理には数秒から数十秒かかる場合があります</p>
+                        </div>
+                    </div>
+                    
+                    <div id="batchResults" style="margin-top: 20px; display: none;">
+                        <h3 style="margin-bottom: 15px;">分析結果</h3>
+                        
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <h4>平均分離ペア数</h4>
+                                <div class="value" id="avgSeparated">-</div>
+                                <small>/ 12ペア</small>
+                            </div>
+                            <div class="stat-card">
+                                <h4>平均ペア間距離</h4>
+                                <div class="value" id="avgDistance">-</div>
+                            </div>
+                            <div class="stat-card">
+                                <h4>平均同一面ペア</h4>
+                                <div class="value" id="avgSameFace">-</div>
+                                <small>/ 12ペア</small>
+                            </div>
+                        </div>
+                        
+                        <h4 style="margin-top: 25px; margin-bottom: 15px;">距離分布</h4>
+                        <div class="cube-display" id="distanceDistribution">-</div>
+                        
+                        <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <button class="control-btn btn-primary" onclick="exportResults('excel')">Excel形式でダウンロード</button>
+                            <button class="control-btn btn-secondary" onclick="exportResults('csv')">CSV形式でダウンロード</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="statisticsTab" class="tab-content">
+                    <h3 style="margin-bottom: 20px;">統計分析 - 操作数別の平均統計</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                        各操作数について複数セットのトライアルを実行し、平均と標準偏差を算出します
+                    </p>
+                    
+                    <div class="control-group" style="margin-bottom: 15px;">
+                        <label>操作数範囲:</label>
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center;">
+                            <input type="number" id="statsMinOps" value="1" min="1" max="1000" 
+                                   style="padding: 8px; border-radius: 5px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);">
+                            <span style="color: var(--text-primary);">〜</span>
+                            <input type="number" id="statsMaxOps" value="100" min="1" max="1000"
+                                   style="padding: 8px; border-radius: 5px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);">
+                        </div>
+                        <small style="color: var(--text-muted);">各操作数（1〜1000）で分析を実行</small>
+                    </div>
+                    
+                    <div class="control-group" style="margin-bottom: 15px;">
+                        <label>1セットあたりのトライアル数:</label>
+                        <input type="number" id="statsTrialsPerSet" value="100" min="1" max="1000"
+                               style="width: 100%; padding: 8px; border-radius: 5px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);">
+                        <small style="color: var(--text-muted);">各セットで実行するトライアル数（1〜1000）</small>
+                    </div>
+                    
+                    <div class="control-group" style="margin-bottom: 20px;">
+                        <label>セット反復回数:</label>
+                        <input type="number" id="statsNumSets" value="10" min="1" max="100"
+                               style="width: 100%; padding: 8px; border-radius: 5px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);">
+                        <small style="color: var(--text-muted);">統計計算のために繰り返すセット数（1〜100）</small>
+                    </div>
+                    
+                    <div id="statsTotalTrials" style="margin-bottom: 20px; padding: 15px; background: var(--bg-tertiary); border-radius: 8px; text-align: center;">
+                        <strong style="color: var(--text-primary);">総トライアル数: <span id="statsTrialCount">100,000</span></strong>
+                        <br>
+                        <small style="color: var(--text-muted);">(操作数の個数 × トライアル数 × セット数)</small>
+                    </div>
+                    
+                    <button class="control-btn btn-primary" onclick="exportStatisticalAnalysis()" style="width: 100%; padding: 12px; font-size: 16px;">
+                        Excel形式でダウンロード
+                    </button>
+                    
+                    <div id="statsProgress" style="margin-top: 20px; display: none;">
+                        <div style="text-align: center; color: #667eea; font-weight: bold;">
+                            <div class="loading" style="margin-bottom: 10px;">統計分析を実行中...</div>
+                            <p>この処理には時間がかかる場合があります</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="randomdataTab" class="tab-content">
+                    <h3 style="margin-bottom: 20px;">ランダムデータ収集 - 数学解析用データ出力</h3>
+                    <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                        ランダム操作を実行し、全キューブレットの座標・回転データをExcelに出力します
+                    </p>
+                    
+                    <div class="control-group" style="margin-bottom: 15px;">
+                        <label>操作回数:</label>
+                        <input type="number" id="randomOpsCount" value="100" min="1" max="10000"
+                               style="width: 100%; padding: 8px; border-radius: 5px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);">
+                        <small style="color: var(--text-muted);">実行するランダム操作の回数（1〜10000）</small>
+                    </div>
+                    
+                    <div class="control-group" style="margin-bottom: 15px;">
+                        <label>乱数シード:</label>
+                        <input type="number" id="randomSeed" placeholder="自動（空欄で自動生成）" min="0"
+                               style="width: 100%; padding: 8px; border-radius: 5px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);">
+                        <small style="color: var(--text-muted);">再現性のためのシード値（空欄でランダム）</small>
+                    </div>
+
+                    <div class="control-group" style="margin-bottom: 15px;">
+                        <label>使用する操作:</label>
+                        <div style="background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                            <div style="color: var(--text-primary); font-weight: bold; margin-bottom: 8px;">外層（12）</div>
+                            <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px;">
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="R" checked>R</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="Rp" checked>Rp</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="L" checked>L</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="Lp" checked>Lp</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="U" checked>U</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="Up" checked>Up</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="D" checked>D</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="Dp" checked>Dp</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="F" checked>F</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="Fp" checked>Fp</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="B" checked>B</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="Bp" checked>Bp</label>
+                            </div>
+
+                            <div style="color: var(--text-primary); font-weight: bold; margin-bottom: 8px;">内層（12）</div>
+                            <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px;">
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="r" checked>r</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="rp" checked>rp</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="l" checked>l</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="lp" checked>lp</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="u" checked>u</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="up" checked>up</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="d" checked>d</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="dp" checked>dp</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="f" checked>f</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="fp" checked>fp</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="b" checked>b</label>
+                                <label style="display: inline-flex; align-items: center; gap: 6px; color: var(--text-primary);"><input type="checkbox" name="randomAllowedOp" value="bp" checked>bp</label>
+                            </div>
+                        </div>
+                        <small style="color: var(--text-muted);">デフォルトは全て選択。1つ以上選択してください。</small>
+                    </div>
+                    
+                    <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-tertiary); border-radius: 8px;">
+                        <h4 style="margin-bottom: 10px; color: var(--text-primary);">出力データ:</h4>
+                        <ul style="color: var(--text-secondary); padding-left: 20px; line-height: 1.8;">
+                            <li>操作種類: R, Rp, L, Lp, U, Up, D, Dp, F, Fp, B, Bp, r, rp, l, lp, u, up, d, dp, f, fp, b, bp (24種類)</li>
+                            <li>初期状態シート: ID, タイプ, 初期座標</li>
+                            <li>動的データシート: 各操作後の全キューブレット（56個）の座標・回転行列・回転角度・移動距離</li>
+                            <li>メタデータシート: 乱数シード、実行情報</li>
+                        </ul>
+                    </div>
+                    
+                    <button class="control-btn btn-primary" onclick="startRandomDataCollection()" style="width: 100%; padding: 12px; font-size: 16px; margin-bottom: 10px;">
+                        データ収集開始・Excelダウンロード
+                    </button>
+                    
+                    <button class="control-btn btn-secondary" onclick="cancelRandomDataCollection()" 
+                            id="cancelRandomDataBtn" style="width: 100%; padding: 12px; display: none;">
+                        キャンセル
+                    </button>
+                    
+                    <div id="randomDataProgress" style="margin-top: 20px; display: none;">
+                        <div style="margin-bottom: 15px;">
+                            <div style="background: var(--bg-tertiary); border-radius: 10px; overflow: hidden; height: 30px; border: 1px solid var(--border-color);">
+                                <div id="randomDataProgressBar" style="background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); height: 100%; width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 14px;">
+                                    0%
+                                </div>
+                            </div>
+                        </div>
+                        <div id="randomDataProgressMessage" style="text-align: center; color: var(--text-primary); font-weight: bold; margin-bottom: 5px;">
+                            準備中...
+                        </div>
+                        <div style="text-align: center; color: var(--text-secondary); font-size: 14px;">
+                            この処理には時間がかかる場合があります
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="colorsTab" class="tab-content">
+                    <button class="control-btn btn-primary" onclick="loadColorCount()" style="margin-bottom: 20px;">色をカウント</button>
+                    <div id="colorCountContent">
+                        <p style="text-align: center; color: var(--text-secondary);">上のボタンをクリックして色をカウント</p>
+                    </div>
+                </div>
+                
+                <div id="visualizationTab" class="tab-content">
+                    <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <label style="color: var(--text-primary); font-weight: bold;">視点:</label>
+                        <select id="viewAngleSelect" style="padding: 8px; border-radius: 5px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color);">
+                            <option value="30,-45">前側から（デフォルト）</option>
+                            <option value="30,45">右前から</option>
+                            <option value="30,135">右後ろから</option>
+                            <option value="30,-135">左後ろから</option>
+                            <option value="90,0">真上から</option>
+                            <option value="0,0">正面から</option>
+                            <option value="0,90">右側面から</option>
+                            <option value="0,-90">左側面から</option>
+                            <option value="0,180">背面から</option>
+                            <option value="-90,0">真下から</option>
+                        </select>
+                        <button class="control-btn btn-primary" onclick="generate3D()" style="padding: 8px 20px;">3D表示を生成</button>
+                    </div>
+                    <div id="visualizationContainer" class="loading">
+                        上のボタンをクリックして3D表示を生成
+                    </div>
+                </div>
+                
+                <div id="historyTab" class="tab-content">
+                    <div style="margin-bottom: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <button class="control-btn btn-primary" onclick="generateReverseSequence()">逆操作を生成</button>
+                        <button class="control-btn btn-secondary" onclick="copyToSequenceInput()">カスタム操作に貼付</button>
+                    </div>
+                    <div id="reverseSequence" style="margin-bottom: 15px; display: none;">
+                        <h4 style="margin-bottom: 10px;">逆操作列（初期状態に戻す）:</h4>
+                        <div class="cube-display" id="reverseSequenceText" style="cursor: pointer; user-select: all;"
+                             onclick="selectText(this)" title="クリックで全選択">-</div>
+                    </div>
+                    <h4 style="margin-bottom: 10px;">操作履歴:</h4>
+                    <div class="history-list" id="historyList">
+                        <p style="text-align: center; color: var(--text-secondary);">操作履歴はありません</p>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <!-- カスタムモーダルダイアログ -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-dialog">
+            <div class="modal-title" id="modalTitle">確認</div>
+            <div class="modal-message" id="modalMessage"></div>
+            <div class="modal-buttons" id="modalButtons"></div>
+        </div>
+    </div>
+    
+    <script>
+        let currentState = null;
+        let socket = null;
+        let scene, camera, renderer, controls, cubeGroup;
+        let animationId = null;
+        
+        // カスタムモーダルダイアログ
+        function showModal(message, title = '通知') {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('modalOverlay');
+                const titleEl = document.getElementById('modalTitle');
+                const messageEl = document.getElementById('modalMessage');
+                const buttonsEl = document.getElementById('modalButtons');
+                
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+                buttonsEl.innerHTML = '<button class="modal-btn modal-btn-primary" onclick="closeModal(true)">OK</button>';
+                
+                overlay.classList.add('active');
+                
+                window._modalResolve = resolve;
+            });
+        }
+        
+        function showConfirm(message, title = '確認', options = {}) {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('modalOverlay');
+                const titleEl = document.getElementById('modalTitle');
+                const messageEl = document.getElementById('modalMessage');
+                const buttonsEl = document.getElementById('modalButtons');
+                
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+                
+                const isDanger = options.danger || false;
+                const confirmText = options.confirmText || 'OK';
+                const cancelText = options.cancelText || 'キャンセル';
+                
+                const confirmBtnClass = isDanger ? 'modal-btn-danger' : 'modal-btn-primary';
+                
+                buttonsEl.innerHTML = `
+                    <button class="modal-btn modal-btn-secondary" onclick="closeModal(false)">${cancelText}</button>
+                    <button class="modal-btn ${confirmBtnClass}" onclick="closeModal(true)">${confirmText}</button>
+                `;
+                
+                overlay.classList.add('active');
+                
+                window._modalResolve = resolve;
+            });
+        }
+        
+        function showPrompt(message, title = '入力', defaultValue = '') {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('modalOverlay');
+                const titleEl = document.getElementById('modalTitle');
+                const messageEl = document.getElementById('modalMessage');
+                const buttonsEl = document.getElementById('modalButtons');
+                
+                titleEl.textContent = title;
+                messageEl.innerHTML = `
+                    <p style="margin-bottom: 10px;">${message}</p>
+                    <input type="text" id="modalPromptInput" value="${defaultValue}" 
+                           style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid var(--border-color); 
+                                  background: var(--bg-tertiary); color: var(--text-primary); font-size: 1em;">
+                `;
+                
+                buttonsEl.innerHTML = `
+                    <button class="modal-btn modal-btn-secondary" onclick="closeModal(null)">キャンセル</button>
+                    <button class="modal-btn modal-btn-primary" onclick="closeModal(document.getElementById('modalPromptInput').value)">OK</button>
+                `;
+                
+                overlay.classList.add('active');
+                
+                // フォーカスを入力欄に
+                setTimeout(() => {
+                    const input = document.getElementById('modalPromptInput');
+                    if (input) {
+                        input.focus();
+                        input.select();
+                        // Enterキーで送信
+                        input.addEventListener('keypress', (e) => {
+                            if (e.key === 'Enter') {
+                                closeModal(input.value);
+                            }
+                        });
+                    }
+                }, 100);
+                
+                window._modalResolve = resolve;
+            });
+        }
+        
+        function closeModal(result) {
+            const overlay = document.getElementById('modalOverlay');
+            overlay.classList.remove('active');
+            
+            if (window._modalResolve) {
+                window._modalResolve(result);
+                window._modalResolve = null;
+            }
+        }
+        
+        // オーバーレイクリックで閉じる
+        document.getElementById('modalOverlay').addEventListener('click', (e) => {
+            if (e.target.id === 'modalOverlay') {
+                closeModal(false);
+            }
+        });
+        
+        // WebSocket初期化
+        function initWebSocket() {
+            socket = io({
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: 10,
+                reconnectionDelay: 2000,
+                timeout: 30000
+            });
+            
+            socket.on('connect', () => {
+                console.log('WebSocket connected, socket.id:', socket.id);
+                console.log('WebSocket transport:', socket.io.engine.transport.name);
+                socket.emit('request_state');
+                updateServerStatus('接続', new Date());
+            });
+            
+            socket.on('cube_updated', (data) => {
+                console.log('Received cube_updated event');
+                currentState = data;
+                updateAllDisplays();
+                updateInspectorTab();
+            });
+            
+            socket.on('cube_state', (data) => {
+                console.log('Received cube_state event');
+                currentState = data;
+                updateAllDisplays();
+                updateInspectorTab();
+                updateServerStatus('稼働中', new Date());
+            });
+            
+            socket.on('error', (data) => {
+                console.error('Socket error:', data);
+                showStatus(data.message, 'error');
+            });
+        }
+        
+        // Initialize
+        loadTheme();  // Load saved theme first
+        initWebSocket();
+        updateState();
+        
+        // ANSI color code to HTML converter
+        function ansiToHtml(text) {
+            // Remove ANSI escape sequences for clear screen and cursor positioning
+            text = text.replace(/\x1b\[2J\x1b\[H/g, '');
+            
+            // ANSI color map
+            const colorMap = {
+                '97;1': '#FFFFFF',  // White (bright)
+                '93;1': '#FFD700',  // Yellow (bright)
+                '92;1': '#00FF00',  // Green (bright)
+                '94;1': '#4169E1',  // Blue (bright)
+                '91;1': '#FF0000',  // Red (bright)
+                '38;5;214;1': '#FFA500'  // Orange
+            };
+            
+            // Replace ANSI codes with HTML spans
+            let html = text;
+            for (const [code, color] of Object.entries(colorMap)) {
+                const regex = new RegExp(`\\x1b\\[${code}m([^\\x1b]+)\\x1b\\[0m`, 'g');
+                html = html.replace(regex, `<span style="color: ${color}; font-weight: bold;">$1</span>`);
+            }
+            
+            return html;
+        }
+        
+        function toggleTheme() {
+            const body = document.body;
+            const themeIcon = document.getElementById('themeIcon');
+            const themeText = document.getElementById('themeText');
+            
+            if (body.classList.contains('light-theme')) {
+                // Switch to dark theme
+                body.classList.remove('light-theme');
+                themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+                themeText.textContent = 'ライト';
+                localStorage.setItem('theme', 'dark');
+            } else {
+                // Switch to light theme
+                body.classList.add('light-theme');
+                themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+                themeText.textContent = 'ダーク';
+                localStorage.setItem('theme', 'light');
+            }
+        }
+        
+        // Load saved theme on page load
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const themeIcon = document.getElementById('themeIcon');
+            const themeText = document.getElementById('themeText');
+            
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-theme');
+                themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+                themeText.textContent = 'ダーク';
+            }
+        }
+        
+        function switchTab(tabName) {
+            // Remove active class from all tabs and contents
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            // Add active class to selected tab
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // 検査タブに切り替えたときにエッジペアリストを読み込む
+            if (tabName === 'inspector') {
+                loadEdgePairList();
+                // タブが表示された直後に最新データで更新
+                setTimeout(() => {
+                    updateInspectorTab();
+                }, 100);
+            }
+            
+            // 3Dビューアタブに切り替えたときに初期化
+            if (tabName === '3dviewer') {
+                console.log('Switching to 3D viewer tab');
+                // タブが表示されてからDOMがレンダリングされるのを待つ
+                setTimeout(() => {
+                    console.log('Checking 3D viewer state...');
+                    
+                    // 初期化されていない、またはレンダラーが無効な場合のみ初期化
+                    if (!scene || !renderer || !renderer.domElement.isConnected) {
+                        console.log('Initializing 3D viewer...');
+                        init3DViewer();
+                    } else {
+                        console.log('3D viewer already initialized, resizing...');
+                        // 既に初期化済みの場合はリサイズ
+                        const container = document.getElementById('threejs-container');
+                        if (container && renderer) {
+                            const width = container.clientWidth;
+                            const height = container.clientHeight;
+                            if (width > 0 && height > 0) {
+                                camera.aspect = width / height;
+                                camera.updateProjectionMatrix();
+                                renderer.setSize(width, height);
+                                console.log('Resized renderer to:', width, 'x', height);
+                            }
+                        }
+                    }
+                    
+                    if (currentState) {
+                        update3DView();
+                    }
+                }, 200); // DOMレンダリング後に初期化
+            }
+        }
+        
+        async function updateState() {
+            try {
+                const response = await fetch('/api/cube/state');
+                const data = await response.json();
+                currentState = data;
+                
+                // Update visual cube net
+                updateVisualCube(data.faces);
+                
+                // Update stats
+                document.getElementById('completionRate').textContent = 
+                    data.analysis.overall.completion_percentage.toFixed(1) + '%';
+                document.getElementById('pairedEdges').textContent = 
+                    data.edges.paired_count + ' / 12';
+                document.getElementById('correctCorners').textContent = 
+                    data.analysis.corners.correct_position + ' / 8';
+                document.getElementById('totalMoves').textContent = data.history.length;
+                
+                // Update detailed analysis
+                const analysis = data.analysis;
+                let detailText = `コーナー:\n`;
+                detailText += `  位置: ${analysis.corners.correct_position}/8\n`;
+                detailText += `  向き: ${analysis.corners.correct_orientation}/8\n\n`;
+                detailText += `エッジ:\n`;
+                detailText += `  位置: ${analysis.edges.correct_position}/24\n`;
+                detailText += `  向き: ${analysis.edges.correct_orientation}/24\n`;
+                detailText += `  完成ペア: ${data.edges.paired_count} 組\n\n`;
+                detailText += `センター:\n`;
+                detailText += `  位置: ${analysis.centers.correct_position}/24\n`;
+                document.getElementById('detailedAnalysis').textContent = detailText;
+                
+                // Update history
+                if (data.history.length > 0) {
+                    const historyHTML = data.history.map((op, i) => 
+                        `<div class="history-item">${i + 1}. ${op}</div>`
+                    ).join('');
+                    document.getElementById('historyList').innerHTML = historyHTML;
+                } else {
+                    document.getElementById('historyList').innerHTML = 
+                        '<p style="text-align: center; color: var(--text-secondary);">操作履歴はありません</p>';
+                }
+                
+                // Update 3D view
+                update3DView();
+                
+            } catch (error) {
+                console.error('Error updating state:', error);
+                showStatus('状態の更新に失敗しました', 'error');
+            }
+        }
+        
+        // ========== Three.js 3Dビューア ==========
+        
+        function init3DViewer() {
+            const container = document.getElementById('threejs-container');
+            if (!container) {
+                console.error('3D container not found');
+                return;
+            }
+            
+            // 既存のレンダラーを完全にクリーンアップ
+            if (renderer) {
+                console.log('Cleaning up existing renderer');
+                renderer.dispose();
+                renderer.forceContextLoss();
+                renderer = null;
+            }
+            
+            if (scene) {
+                console.log('Cleaning up existing scene');
+                scene = null;
+            }
+            
+            if (cubeGroup) {
+                cubeGroup = null;
+            }
+            
+            if (camera) {
+                camera = null;
+            }
+            
+            // アニメーションループを停止
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            // コンテナをクリア
+            container.innerHTML = '';
+            
+            // コンテナのサイズを確認
+            console.log('Container dimensions:', container.clientWidth, container.clientHeight);
+            
+            // コンテナが表示されるまで待つ
+            let width = container.clientWidth;
+            let height = container.clientHeight;
+            
+            // サイズが0の場合はデフォルト値を使用
+            if (width === 0 || height === 0) {
+                width = 800;
+                height = 600;
+                console.log('Container not visible, using default size:', width, height);
+            }
+            
+            try {
+                // シーン作成
+                scene = new THREE.Scene();
+                scene.background = new THREE.Color(0x0a0a0a);
+                
+                // カメラ
+                camera = new THREE.PerspectiveCamera(
+                    50,
+                    width / height,
+                    0.1,
+                    1000
+                );
+                camera.position.set(10, 10, 10);
+                camera.lookAt(0, 0, 0);
+                
+                // レンダラー（WebGLコンテキスト作成オプション追加）
+                renderer = new THREE.WebGLRenderer({ 
+                    antialias: true,
+                    alpha: false,
+                    powerPreference: "default",
+                    preserveDrawingBuffer: false
+                });
+                
+                renderer.setSize(width, height);
+                container.appendChild(renderer.domElement);
+                
+                console.log('Renderer initialized successfully:', width, 'x', height);
+                
+                // ライト
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+                scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(10, 10, 10);
+                scene.add(directionalLight);
+                
+                // キューブグループ
+                cubeGroup = new THREE.Group();
+                scene.add(cubeGroup);
+                
+            } catch (error) {
+                console.error('WebGL initialization error:', error);
+                
+                // WebGLが使えない場合のフォールバック
+                container.innerHTML = `
+                    <div style="padding: 40px; text-align: center; color: var(--text-primary);">
+                        <h3 style="color: #ff6b6b; margin-bottom: 20px;">3Dビューアーの初期化に失敗しました</h3>
+                        <p style="margin-bottom: 15px;">WebGLがサポートされていないか、利用できません。</p>
+                        <p style="margin-bottom: 15px; color: var(--text-secondary);">以下の方法をお試しください：</p>
+                        <ul style="text-align: left; max-width: 500px; margin: 0 auto; color: var(--text-secondary);">
+                            <li>ブラウザでハードウェアアクセラレーションを有効にする</li>
+                            <li>chrome://flags で「WebGL」を有効にする</li>
+                            <li>グラフィックドライバを最新版に更新する</li>
+                            <li>別のブラウザを試す</li>
+                            <li>ページをリロードする</li>
+                        </ul>
+                        <button class="control-btn btn-primary" onclick="location.reload()" style="margin-top: 20px;">
+                            ページをリロード
+                        </button>
+                    </div>
+                `;
+                
+                // 変数をリセット
+                scene = null;
+                camera = null;
+                renderer = null;
+                cubeGroup = null;
+                
+                return;
+            }
+            
+            // マウスコントロール（回転のみ）
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            container.addEventListener('mousedown', (e) => {
+                // 左クリックのみ
+                if (e.button === 0) {
+                    isDragging = true;
+                }
+            });
+            
+            container.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+            
+            container.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.offsetX - previousMousePosition.x;
+                    const deltaY = e.offsetY - previousMousePosition.y;
+                    
+                    cubeGroup.rotation.y += deltaX * 0.01;
+                    cubeGroup.rotation.x += deltaY * 0.01;
+                }
+                previousMousePosition = { x: e.offsetX, y: e.offsetY };
+            });
+            
+            // ホイールと右クリックは無効化（ボタン操作に統一）
+            container.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
+            
+            // タッチコントロール（スマホ対応）
+            let touchStartDistance = 0;
+            let previousTouchPosition = null;
+            
+            container.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    // シングルタッチ: 回転開始
+                    isDragging = true;
+                    const touch = e.touches[0];
+                    const rect = container.getBoundingClientRect();
+                    previousTouchPosition = {
+                        x: touch.clientX - rect.left,
+                        y: touch.clientY - rect.top
+                    };
+                    e.preventDefault();
+                } else if (e.touches.length === 2) {
+                    // ピンチズーム開始
+                    isDragging = false;
+                    const touch1 = e.touches[0];
+                    const touch2 = e.touches[1];
+                    const dx = touch2.clientX - touch1.clientX;
+                    const dy = touch2.clientY - touch1.clientY;
+                    touchStartDistance = Math.sqrt(dx * dx + dy * dy);
+                    e.preventDefault();
+                }
+            }, { passive: false });
+            
+            container.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && isDragging && previousTouchPosition) {
+                    // シングルタッチ: 回転
+                    const touch = e.touches[0];
+                    const rect = container.getBoundingClientRect();
+                    const currentX = touch.clientX - rect.left;
+                    const currentY = touch.clientY - rect.top;
+                    
+                    const deltaX = currentX - previousTouchPosition.x;
+                    const deltaY = currentY - previousTouchPosition.y;
+                    
+                    cubeGroup.rotation.y += deltaX * 0.01;
+                    cubeGroup.rotation.x += deltaY * 0.01;
+                    
+                    previousTouchPosition = { x: currentX, y: currentY };
+                    e.preventDefault();
+                } else if (e.touches.length === 2) {
+                    // ピンチズーム
+                    const touch1 = e.touches[0];
+                    const touch2 = e.touches[1];
+                    const dx = touch2.clientX - touch1.clientX;
+                    const dy = touch2.clientY - touch1.clientY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (touchStartDistance > 0) {
+                        const delta = distance - touchStartDistance;
+                        camera.position.z -= delta * 0.05;
+                        camera.position.z = Math.max(5, Math.min(30, camera.position.z));
+                        touchStartDistance = distance;
+                    }
+                    e.preventDefault();
+                }
+            }, { passive: false });
+            
+            container.addEventListener('touchend', (e) => {
+                if (e.touches.length === 0) {
+                    isDragging = false;
+                    previousTouchPosition = null;
+                }
+                if (e.touches.length < 2) {
+                    touchStartDistance = 0;
+                }
+            });
+            
+            // アニメーションループ
+            function animate() {
+                animationId = requestAnimationFrame(animate);
+                renderer.render(scene, camera);
+            }
+            animate();
+            
+            // リサイズ対応
+            window.addEventListener('resize', () => {
+                if (container.clientWidth > 0) {
+                    camera.aspect = container.clientWidth / container.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(container.clientWidth, container.clientHeight);
+                }
+            });
+        }
+        
+        function update3DView() {
+            if (!currentState || !currentState.cubelets_3d) {
+                console.log('No cube state for 3D update');
+                return;
+            }
+            
+            // 3Dビューアが初期化されていない場合はスキップ
+            if (!scene || !cubeGroup || !renderer) {
+                console.log('3D viewer not initialized');
+                return;
+            }
+            
+            console.log('Updating 3D view with', currentState.cubelets_3d.length, 'cubelets');
+            
+            // 既存のキューブレットをクリア
+            while (cubeGroup.children.length > 0) {
+                cubeGroup.remove(cubeGroup.children[0]);
+            }
+            
+            // 色マッピング
+            const colorMap = {
+                'W': 0xFFFFFF, // 白
+                'Y': 0xFFFF00, // 黄
+                'G': 0x00FF00, // 緑
+                'B': 0x0000FF, // 青
+                'R': 0xFF0000, // 赤
+                'O': 0xFF8000  // オレンジ
+            };
+            
+            // キューブレットを描画
+            currentState.cubelets_3d.forEach((cubelet, index) => {
+                const geometry = new THREE.BoxGeometry(0.95, 0.95, 0.95);
+                const materials = [];
+                
+                // cubeletのcolorsオブジェクトから各面の色を取得
+                const colors = cubelet.colors;
+                
+                // Three.jsのマテリアル順序: right, left, top, bottom, front, back
+                // キューブレットのcolorsオブジェクトから色を取得
+                materials.push(new THREE.MeshPhongMaterial({ 
+                    color: colors.right ? colorMap[colors.right] : 0x222222 
+                }));
+                materials.push(new THREE.MeshPhongMaterial({ 
+                    color: colors.left ? colorMap[colors.left] : 0x222222 
+                }));
+                materials.push(new THREE.MeshPhongMaterial({ 
+                    color: colors.top ? colorMap[colors.top] : 0x222222 
+                }));
+                materials.push(new THREE.MeshPhongMaterial({ 
+                    color: colors.bottom ? colorMap[colors.bottom] : 0x222222 
+                }));
+                materials.push(new THREE.MeshPhongMaterial({ 
+                    color: colors.front ? colorMap[colors.front] : 0x222222 
+                }));
+                materials.push(new THREE.MeshPhongMaterial({ 
+                    color: colors.back ? colorMap[colors.back] : 0x222222 
+                }));
+                
+                const cube = new THREE.Mesh(geometry, materials);
+                const pos = cubelet.position;
+                cube.position.set(pos.x, pos.y, pos.z);
+                
+                // エッジを追加
+                const edges = new THREE.EdgesGeometry(geometry);
+                const line = new THREE.LineSegments(
+                    edges,
+                    new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 })
+                );
+                line.position.set(pos.x, pos.y, pos.z);
+                
+                cubeGroup.add(cube);
+                cubeGroup.add(line);
+            });
+            
+            console.log('3D view updated successfully');
+        }
+        
+        function reset3DView() {
+            if (cubeGroup) {
+                cubeGroup.rotation.set(0, 0, 0);
+            }
+            if (camera) {
+                camera.position.set(10, 10, 10);
+                camera.lookAt(0, 0, 0);
+            }
+        }
+        
+        function zoom3DIn() {
+            if (camera) {
+                // カメラを原点に近づける（ズームイン）
+                const direction = new THREE.Vector3();
+                direction.subVectors(new THREE.Vector3(0, 0, 0), camera.position).normalize();
+                camera.position.addScaledVector(direction, 1);
+                
+                // 最小距離を制限
+                const distance = camera.position.length();
+                if (distance < 5) {
+                    camera.position.normalize().multiplyScalar(5);
+                }
+            }
+        }
+        
+        function zoom3DOut() {
+            if (camera) {
+                // カメラを原点から遠ざける（ズームアウト）
+                const direction = new THREE.Vector3();
+                direction.subVectors(camera.position, new THREE.Vector3(0, 0, 0)).normalize();
+                camera.position.addScaledVector(direction, 1);
+                
+                // 最大距離を制限
+                const distance = camera.position.length();
+                if (distance > 30) {
+                    camera.position.normalize().multiplyScalar(30);
+                }
+            }
+        }
+        
+        function move3DUp() {
+            if (camera) {
+                // 画面の上方向に移動（カメラのアップベクトル方向）
+                const up = new THREE.Vector3(0, 1, 0);
+                camera.position.addScaledVector(up, -0.5);
+            }
+        }
+        
+        function move3DDown() {
+            if (camera) {
+                // 画面の下方向に移動（カメラのアップベクトルの逆方向）
+                const up = new THREE.Vector3(0, 1, 0);
+                camera.position.addScaledVector(up, 0.5);
+            }
+        }
+        
+        function move3DLeft() {
+            if (camera) {
+                // 画面の左方向に移動（カメラの右ベクトルの逆方向）
+                const target = new THREE.Vector3(0, 0, 0);
+                const direction = new THREE.Vector3();
+                direction.subVectors(target, camera.position).normalize();
+                const right = new THREE.Vector3();
+                right.crossVectors(direction, new THREE.Vector3(0, 1, 0)).normalize();
+                camera.position.addScaledVector(right, 0.5);
+            }
+        }
+        
+        function move3DRight() {
+            if (camera) {
+                // 画面の右方向に移動（カメラの右ベクトル方向）
+                const target = new THREE.Vector3(0, 0, 0);
+                const direction = new THREE.Vector3();
+                direction.subVectors(target, camera.position).normalize();
+                const right = new THREE.Vector3();
+                right.crossVectors(direction, new THREE.Vector3(0, 1, 0)).normalize();
+                camera.position.addScaledVector(right, -0.5);
+            }
+        }
+        
+
+        
+        // ========== インタラクティブモード ==========
+        
+        function clearInteractiveOutput() {
+            document.getElementById('interactiveOutput').textContent = 
+                'インタラクティブモードへようこそ！\n左のメニューから機能を選択してください。';
+        }
+        
+        function appendInteractiveOutput(text) {
+            const output = document.getElementById('interactiveOutput');
+            output.textContent += '\n' + text;
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function setInteractiveOutput(text) {
+            document.getElementById('interactiveOutput').textContent = text;
+        }
+        
+        async function interactiveAction(action) {
+            appendInteractiveOutput('\n' + '='.repeat(60));
+            appendInteractiveOutput(`実行: ${action}`);
+            appendInteractiveOutput('='.repeat(60));
+            
+            switch (action) {
+                case 'show_state':
+                    if (currentState) {
+                        setInteractiveOutput('現在のキューブ状態:\n' + '-'.repeat(60) + '\n' +
+                            currentState.text_state + '\n' + '-'.repeat(60));
+                    }
+                    break;
+                    
+                case 'execute_single':
+                    const op = prompt('操作を入力してください (例: R, U\', F2):');
+                    if (op) {
+                        await executeOp(op);
+                        appendInteractiveOutput(`✓ 操作 '${op}' を実行しました`);
+                        if (currentState) {
+                            appendInteractiveOutput('\n' + currentState.text_state);
+                        }
+                    }
+                    break;
+                    
+                case 'execute_sequence':
+                    const seq = await showPrompt('操作列を入力してください (スペース区切り):', '操作列実行');
+                    if (seq) {
+                        await executeOp(seq);
+                        const moveCount = seq.split(/\s+/).length;
+                        appendInteractiveOutput(`✓ 操作列を実行しました (${moveCount} 操作)`);
+                        if (currentState) {
+                            appendInteractiveOutput('\n' + currentState.text_state);
+                        }
+                    }
+                    break;
+                    
+                case 'reset':
+                    const resetConfirmed = await showConfirm('キューブをリセットしますか?', '確認', { danger: true, confirmText: 'リセット' });
+                    if (resetConfirmed) {
+                        await resetCube();
+                        appendInteractiveOutput('✓ キューブをリセットしました');
+                    } else {
+                        appendInteractiveOutput('キャンセルしました');
+                    }
+                    break;
+                    
+                case 'show_history':
+                    if (currentState && currentState.history && currentState.history.length > 0) {
+                        setInteractiveOutput('操作履歴:\n' + '-'.repeat(60) + '\n');
+                        currentState.history.forEach((op, i) => {
+                            appendInteractiveOutput(`${String(i+1).padStart(3)}. ${op}`);
+                        });
+                        appendInteractiveOutput('-'.repeat(60));
+                        appendInteractiveOutput(`合計: ${currentState.history.length} 操作`);
+                    } else {
+                        setInteractiveOutput('操作履歴はありません');
+                    }
+                    break;
+                    
+                case 'analyze_edges':
+                    if (currentState && currentState.edges) {
+                        setInteractiveOutput('エッジペア解析:\n' + '-'.repeat(60) + '\n');
+                        appendInteractiveOutput(`完成エッジペア: ${currentState.edges.paired_count} 組`);
+                        if (currentState.edges.paired.length > 0) {
+                            currentState.edges.paired.forEach((pair, i) => {
+                                appendInteractiveOutput(`  ${i+1}. ${pair.pos1} - ${pair.pos2}`);
+                            });
+                        }
+                        appendInteractiveOutput(`\n未完成エッジ: ${currentState.edges.unpaired_count} 個`);
+                        if (currentState.edges.unpaired.length > 0) {
+                            currentState.edges.unpaired.forEach((edge, i) => {
+                                appendInteractiveOutput(`  ${i+1}. ${edge}`);
+                            });
+                        }
+                        appendInteractiveOutput('-'.repeat(60));
+                    }
+                    break;
+                    
+                case 'position_info':
+                    if (currentState) {
+                        setInteractiveOutput('位置情報詳細:\n' + '-'.repeat(60) + '\n');
+                        appendInteractiveOutput('エッジ情報:');
+                        appendInteractiveOutput(`  完成ペア: ${currentState.edges?.paired_count || 0} 組`);
+                        appendInteractiveOutput(`  未完成: ${currentState.edges?.unpaired_count || 0} 個`);
+                        const completion = currentState.is_solved ? 100.0 : 
+                            ((currentState.edges?.paired_count || 0) / 12.0 * 100.0);
+                        appendInteractiveOutput(`\n全体完成度: ${completion.toFixed(1)}%`);
+                        appendInteractiveOutput('-'.repeat(60));
+                    }
+                    break;
+                    
+                case 'operations_list':
+                    try {
+                        const response = await fetch('/api/interactive/operations_list');
+                        const data = await response.json();
+                        setInteractiveOutput('利用可能な操作一覧:\n' + '-'.repeat(60) + '\n');
+                        for (const [category, ops] of Object.entries(data.operations)) {
+                            appendInteractiveOutput(`\n${category}:`);
+                            appendInteractiveOutput(`  ${ops.join(', ')}`);
+                        }
+                        appendInteractiveOutput('\n' + '-'.repeat(60));
+                        appendInteractiveOutput(`合計: ${data.total_count} 種類の操作`);
+                    } catch (error) {
+                        appendInteractiveOutput('✗ 操作リストの取得に失敗しました');
+                    }
+                    break;
+                    
+                case 'help':
+                    try {
+                        const response = await fetch('/api/interactive/help');
+                        const data = await response.json();
+                        setInteractiveOutput(data.help);
+                    } catch (error) {
+                        appendInteractiveOutput('✗ ヘルプの取得に失敗しました');
+                    }
+                    break;
+                    
+                default:
+                    appendInteractiveOutput(`未実装の機能: ${action}`);
+            }
+        }
+        
+        // 全ディスプレイを更新
+        function updateAllDisplays() {
+            if (!currentState) return;
+            
+            // Update visual cube net
+            updateVisualCube(currentState.faces);
+            
+            // Update stats
+            const completionPct = currentState.analysis?.overall?.completion_percentage;
+            document.getElementById('completionRate').textContent = 
+                (completionPct !== undefined ? completionPct.toFixed(1) + '%' : '-');
+            document.getElementById('pairedEdges').textContent = 
+                currentState.edges.paired_count + ' / 12';
+            document.getElementById('correctCorners').textContent = 
+                (currentState.analysis?.corners?.correct_position !== undefined ? 
+                    currentState.analysis.corners.correct_position : '-') + ' / 8';
+            document.getElementById('totalMoves').textContent = currentState.history.length;
+            
+            // Update detailed analysis
+            if (currentState.analysis) {
+                const analysis = currentState.analysis;
+                let detailText = `コーナー:\n`;
+                detailText += `  位置: ${analysis.corners.correct_position}/8\n`;
+                detailText += `  向き: ${analysis.corners.correct_orientation}/8\n\n`;
+                detailText += `エッジ:\n`;
+                detailText += `  位置: ${analysis.edges.correct_position}/24\n`;
+                detailText += `  向き: ${analysis.edges.correct_orientation}/24\n`;
+                detailText += `  完成ペア: ${currentState.edges.paired_count} 組\n\n`;
+                detailText += `センター:\n`;
+                detailText += `  位置: ${analysis.centers.correct_position}/24\n`;
+                document.getElementById('detailedAnalysis').textContent = detailText;
+            }
+            
+            // Update history
+            if (currentState.history.length > 0) {
+                const historyHTML = currentState.history.map((op, i) => 
+                    `<div class="history-item">${i + 1}. ${op}</div>`
+                ).join('');
+                document.getElementById('historyList').innerHTML = historyHTML;
+            } else {
+                document.getElementById('historyList').innerHTML = 
+                    '<p style="text-align: center; color: var(--text-secondary);">操作履歴はありません</p>';
+            }
+            
+            // Update interactive mode output if currently viewing that tab
+            const interactiveTab = document.getElementById('interactiveTab');
+            if (interactiveTab && interactiveTab.classList.contains('active')) {
+                const output = document.getElementById('interactiveOutput');
+                if (output && currentState.text_state) {
+                    const currentText = output.textContent;
+                    // 初期メッセージまたは既にキューブ状態を表示中の場合は自動更新
+                    if (currentText.includes('インタラクティブモードへようこそ') || 
+                        currentText.includes('現在のキューブ状態:') ||
+                        currentText.trim() === '') {
+                        setInteractiveOutput('現在のキューブ状態:\n' + currentState.text_state);
+                    }
+                }
+            }
+            
+            // Update 3D view
+            update3DView();
+        }
+        
+        async function executeOp(operation) {
+            // WebSocket経由で操作を実行（リアルタイム更新）
+            console.log('executeOp called:', operation);
+            
+            if (!socket) {
+                console.error('Socket not initialized');
+                showStatus('WebSocket未初期化', 'error');
+                return;
+            }
+            
+            console.log('Emitting execute_operation via WebSocket');
+            socket.emit('execute_operation', {operation: operation});
+            // WebSocketのcube_updatedイベントで自動更新される
+        }
+        
+        async function executeSequence() {
+            const sequence = document.getElementById('sequenceInput').value.trim();
+            if (!sequence) {
+                showStatus('操作列を入力してください', 'error');
+                return;
+            }
+            
+            await executeOp(sequence);
+            document.getElementById('sequenceInput').value = '';
+        }
+        
+        async function resetCube() {
+            const confirmed = await showConfirm('キューブを完成状態にリセットしますか？', '確認', { danger: true, confirmText: 'リセット' });
+            if (!confirmed) return;
+            
+            try {
+                showStatus('リセット中...', 'info');
+                
+                if (socket && socket.connected) {
+                    socket.emit('reset_cube');
+                } else {
+                    const response = await fetch('/api/cube/reset', {method: 'POST'});
+                    if (response.ok) {
+                        await updateState();
+                    }
+                }
+            } catch (error) {
+                showStatus('Error resetting cube', 'error');
+            }
+        }
+        
+        async function shuffleCube() {
+            const moves = await showPrompt('シャッフルの手数を入力してください（推奨: 20-50）:', 'シャッフル', '20');
+            if (!moves) return;
+            
+            const movesCount = parseInt(moves);
+            if (isNaN(movesCount) || movesCount < 1 || movesCount > 100) {
+                await showModal('手数は1-100の範囲で入力してください', 'エラー');
+                return;
+            }
+            
+            try {
+                showStatus(`${movesCount}手でシャッフル中...`, 'info');
+                
+                if (socket && socket.connected) {
+                    socket.emit('shuffle_cube', {moves: movesCount});
+                } else {
+                    const response = await fetch('/api/cube/shuffle', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({moves: movesCount})
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        await updateState();
+                        showStatus(`シャッフル完了: ${data.moves_count}手`, 'success');
+                    }
+                }
+            } catch (error) {
+                showStatus('シャッフルエラー', 'error');
+            }
+        }
+        
+        async function restartServer() {
+            const confirmed = await showConfirm('サーバーを再起動しますか？\nサーバー再起動後、自動的にページがリロードされます。', 'サーバー再起動', { danger: true, confirmText: '再起動' });
+            if (!confirmed) return;
+            
+            try {
+                showStatus('サーバーを再起動しています...', 'info');
+                
+                // 再起動リクエストを送信
+                fetch('/api/server/restart', {method: 'POST'}).catch(() => {
+                    // サーバーが停止するためエラーは正常
+                });
+                
+                // サーバーが起動するのを待ってリロード
+                showStatus('サーバーが再起動中です。接続を確認しています...', 'info');
+                
+                // 2秒待ってから接続を試みる
+                setTimeout(() => {
+                    checkServerAndReload();
+                }, 2000);
+                
+            } catch (error) {
+                showStatus('サーバーを再起動中です...', 'info');
+                setTimeout(() => {
+                    checkServerAndReload();
+                }, 2000);
+            }
+        }
+        
+        // サーバーの起動を確認してリロード
+        function checkServerAndReload() {
+            let attempts = 0;
+            const maxAttempts = 20; // 最大20回試行（約10秒）
+            
+            const checkInterval = setInterval(async () => {
+                attempts++;
+                
+                try {
+                    const response = await fetch('/api/cube/state', { 
+                        method: 'GET',
+                        cache: 'no-cache'
+                    });
+                    
+                    if (response.ok) {
+                        // サーバーが応答した
+                        clearInterval(checkInterval);
+                        showStatus('サーバーが再起動しました。ページをリロードします...', 'success');
+                        setTimeout(() => {
+                            location.reload();
+                        }, 500);
+                    }
+                } catch (error) {
+                    // まだサーバーが起動していない
+                    if (attempts >= maxAttempts) {
+                        clearInterval(checkInterval);
+                        showStatus('サーバーの再起動を確認できませんでした。手動でリロードしてください。', 'error');
+                    } else {
+                        showStatus(`サーバー起動待機中... (${attempts}/${maxAttempts})`, 'info');
+                    }
+                }
+            }, 500); // 0.5秒ごとにチェック
+        }
+        
+        async function killServer() {
+            const confirmed = await showConfirm('サーバーを停止しますか？\nこのページは使用できなくなります。', 'サーバー停止', { danger: true, confirmText: '停止' });
+            if (!confirmed) return;
+            
+            try {
+                showStatus('サーバーを停止しています...', 'warning');
+                await fetch('/api/server/kill', {method: 'POST'});
+            } catch (error) {
+                // サーバーが停止するため、エラーは正常な動作
+                showStatus('サーバーが停止しました', 'warning');
+            }
+        }
+        
+        async function saveState() {
+            try {
+                const response = await fetch('/api/cube/save');
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'cube_state.json';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                showStatus('保存に失敗しました', 'error');
+            }
+        }
+        
+        async function loadState() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) return;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/api/cube/load', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    await updateState();
+                } else {
+                    const error = await response.json();
+                    showStatus(`エラー: ${error.error}`, 'error');
+                }
+            } catch (error) {
+                showStatus('読み込みに失敗しました', 'error');
+            }
+            
+            fileInput.value = '';
+        }
+        
+        async function generate3D() {
+            const container = document.getElementById('visualizationContainer');
+            const viewSelect = document.getElementById('viewAngleSelect');
+            const [elev, azim] = viewSelect.value.split(',');
+            
+            container.innerHTML = '<div class="loading">3D表示を生成中...</div>';
+            
+            try {
+                const response = await fetch(`/api/cube/visualize?elev=${elev}&azim=${azim}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    container.innerHTML = `<img id="visualizationImg" src="${data.image}" alt="3Dキューブ" style="max-width: 100%; height: auto;">`;
+                } else {
+                    container.innerHTML = `<div class="status-error">エラー: ${data.error}</div>`;
+                }
+            } catch (error) {
+                container.innerHTML = '<div class="status-error">3D表示の生成に失敗しました</div>';
+            }
+        }
+        
+        async function loadEdgeAnalysis() {
+            const container = document.getElementById('edgeAnalysisContent');
+            container.innerHTML = '<div class="loading">分析中...</div>';
+            
+            try {
+                const response = await fetch('/api/cube/edge_analysis');
+                const data = await response.json();
+                
+                let html = '<div class="cube-display">';
+                html += '<h3>総合統計</h3>';
+                html += `<p>分離ペア数: ${data.overall_stats.separated_pairs} / 12</p>`;
+                html += `<p>同一面ペア数: ${data.overall_stats.pairs_on_same_face} / 12</p>`;
+                html += `<p>平均ペア距離: ${data.overall_stats.average_distance}</p>`;
+                html += `<p>最大ペア距離: ${data.overall_stats.max_distance}</p>`;
+                
+                html += '<h3 style="margin-top: 20px;">距離分布</h3>';
+                html += `<p>近い (≤1.5): ${data.distance_distribution.near.count}個 (${data.distance_distribution.near.percentage}%)</p>`;
+                html += `<p>中間 (≤3.5): ${data.distance_distribution.medium.count}個 (${data.distance_distribution.medium.percentage}%)</p>`;
+                html += `<p>遠い (>3.5): ${data.distance_distribution.far.count}個 (${data.distance_distribution.far.percentage}%)</p>`;
+                
+                html += '<h3 style="margin-top: 20px;">ペア距離詳細</h3>';
+                for (const pair of data.pair_details) {
+                    html += `<p>${pair.pair_id}: ${pair.distance} (${pair.category}) - ${pair.status}</p>`;
+                }
+                html += '</div>';
+                
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = '<div class="status-error">エッジペア分析に失敗しました</div>';
+            }
+        }
+        
+        async function loadColorCount() {
+            const container = document.getElementById('colorCountContent');
+            container.innerHTML = '<div class="loading">カウント中...</div>';
+            
+            try {
+                const response = await fetch('/api/cube/colors');
+                const data = await response.json();
+                
+                let html = '<div class="cube-display">';
+                html += '<h3>色カウント</h3>';
+                for (const [color, count] of Object.entries(data.colors)) {
+                    html += `<p>${color}: ${count}個</p>`;
+                }
+                html += `<p style="margin-top: 15px; font-weight: bold;">合計: ${data.total}個</p>`;
+                html += `<p style="color: ${data.is_valid ? '#5af78e' : '#ff6b6b'}; font-weight: bold;">`;
+                html += data.is_valid ? '✓ 正常' : '✗ 異常';
+                html += '</p></div>';
+                
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = '<div class="status-error">色カウントに失敗しました</div>';
+            }
+        }
+        
+        // バッチ分析関数
+        let batchResultsCache = null;
+        
+        async function runBatchAnalysis() {
+            const numTrials = parseInt(document.getElementById('numTrials').value);
+            const minOps = parseInt(document.getElementById('minOps').value);
+            const maxOps = parseInt(document.getElementById('maxOps').value);
+            
+            // バリデーション
+            if (numTrials < 1 || numTrials > 1000) {
+                showStatus('トライアル数は1-1000の範囲で指定してください', 'error');
+                return;
+            }
+            if (minOps < 1 || maxOps > 200) {
+                showStatus('操作数は1-200の範囲で指定してください', 'error');
+                return;
+            }
+            if (minOps > maxOps) {
+                showStatus('最小操作数は最大操作数以下にしてください', 'error');
+                return;
+            }
+            
+            // UI更新
+            document.getElementById('batchProgress').style.display = 'block';
+            document.getElementById('batchResults').style.display = 'none';
+            updateBatchStatus({ state: '実行中', detail: `ops ${minOps}-${maxOps}, trials ${numTrials}`, message: '実行キュー投入' });
+            
+            try {
+                const response = await fetch('/api/batch/analyze', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        num_trials: numTrials,
+                        min_ops: minOps,
+                        max_ops: maxOps
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'バッチ分析に失敗しました');
+                }
+                
+                // 結果をキャッシュ
+                batchResultsCache = {
+                    num_trials: numTrials,
+                    min_ops: minOps,
+                    max_ops: maxOps,
+                    operations_range: [minOps, maxOps]
+                };
+                
+                // 結果を表示
+                document.getElementById('avgSeparated').textContent = data.statistics.avg_separated_pairs;
+                document.getElementById('avgDistance').textContent = data.statistics.avg_pair_distance;
+                document.getElementById('avgSameFace').textContent = data.statistics.avg_same_face;
+                
+                // 距離分布
+                const dist = data.statistics.distance_distribution;
+                const distPct = data.statistics.distance_percentages;
+                let distHtml = `近い (≤1.5): ${dist.near}個 (${distPct.near}%)\n`;
+                distHtml += `中間 (≤3.5): ${dist.medium}個 (${distPct.medium}%)\n`;
+                distHtml += `遠い (>3.5): ${dist.far}個 (${distPct.far}%)`;
+                document.getElementById('distanceDistribution').textContent = distHtml;
+                
+                document.getElementById('batchProgress').style.display = 'none';
+                document.getElementById('batchResults').style.display = 'block';
+                updateBatchStatus({ state: '完了', detail: `ops ${minOps}-${maxOps}, trials ${numTrials}`, message: '完了' });
+                
+            } catch (error) {
+                document.getElementById('batchProgress').style.display = 'none';
+                showStatus(error.message, 'error');
+                updateBatchStatus({ state: 'エラー', detail: error.message || '失敗', message: error.message || '失敗' });
+            }
+        }
+        
+        // 統計分析関数
+        function updateStatsTotalTrials() {
+            const minOps = parseInt(document.getElementById('statsMinOps').value) || 1;
+            const maxOps = parseInt(document.getElementById('statsMaxOps').value) || 100;
+            const trialsPerSet = parseInt(document.getElementById('statsTrialsPerSet').value) || 100;
+            const numSets = parseInt(document.getElementById('statsNumSets').value) || 10;
+            
+            const numOps = Math.max(0, maxOps - minOps + 1);
+            const total = numOps * trialsPerSet * numSets;
+            
+            document.getElementById('statsTrialCount').textContent = total.toLocaleString();
+        }
+        
+        // 入力フィールドの変更を監視
+        document.addEventListener('DOMContentLoaded', function() {
+            const statsInputs = ['statsMinOps', 'statsMaxOps', 'statsTrialsPerSet', 'statsNumSets'];
+            statsInputs.forEach(id => {
+                const elem = document.getElementById(id);
+                if (elem) {
+                    elem.addEventListener('input', updateStatsTotalTrials);
+                }
+            });
+            updateStatsTotalTrials();
+        });
+        
+        async function exportStatisticalAnalysis() {
+            const minOps = parseInt(document.getElementById('statsMinOps').value);
+            const maxOps = parseInt(document.getElementById('statsMaxOps').value);
+            const trialsPerSet = parseInt(document.getElementById('statsTrialsPerSet').value);
+            const numSets = parseInt(document.getElementById('statsNumSets').value);
+            
+            // バリデーション
+            if (!minOps || !maxOps || !trialsPerSet || !numSets) {
+                showStatus('すべてのパラメータを入力してください', 'error');
+                return;
+            }
+            if (minOps < 1 || maxOps > 1000 || minOps > maxOps) {
+                showStatus('操作数は1-1000の範囲で、最小≤最大としてください', 'error');
+                return;
+            }
+            if (trialsPerSet < 1 || trialsPerSet > 1000) {
+                showStatus('トライアル数は1-1000の範囲で指定してください', 'error');
+                return;
+            }
+            if (numSets < 1 || numSets > 100) {
+                showStatus('セット反復回数は1-100の範囲で指定してください', 'error');
+                return;
+            }
+            
+            // 警告表示
+            const totalTrials = (maxOps - minOps + 1) * trialsPerSet * numSets;
+            if (totalTrials > 50000) {
+                const confirmed = await showConfirm(
+                    `総トライアル数が${totalTrials.toLocaleString()}回になります。処理に時間がかかる可能性がありますが続行しますか？`,
+                    '統計分析の確認',
+                    { confirmText: '実行', cancelText: 'キャンセル' }
+                );
+                if (!confirmed) {
+                    return;
+                }
+            }
+            
+            // UI更新
+            const progressDiv = document.getElementById('statsProgress');
+            progressDiv.style.display = 'block';
+            progressDiv.innerHTML = `
+                <div style="text-align: center; color: #667eea; font-weight: bold;">
+                    <div class="loading" style="margin-bottom: 10px;">統計分析を実行中...</div>
+                    <p id="statsProgressText">準備中...</p>
+                    <div style="margin-top: 15px; background: var(--bg-tertiary); border-radius: 10px; overflow: hidden; height: 30px;">
+                        <div id="statsProgressBar" style="background: linear-gradient(90deg, #667eea, #764ba2); height: 100%; width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                    <button onclick="cancelStatsAnalysis()" style="margin-top: 20px; padding: 10px 24px; border: 2px solid #dc3545; background: transparent; color: #dc3545; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; font-size: 0.95em;" onmouseover="this.style.background='#dc3545'; this.style.color='white';" onmouseout="this.style.background='transparent'; this.style.color='#dc3545';">
+                        ✕ キャンセル
+                    </button>
+                </div>
+            `;
+            
+            // WebSocket経由で統計分析開始
+            socket.emit('start_stats_analysis_progress', {
+                min_ops: minOps,
+                max_ops: maxOps,
+                trials_per_set: trialsPerSet,
+                num_sets: numSets
+            });
+            updateStatsStatus({ state: '実行中', current: 0, total: trialsPerSet * numSets, opCount: minOps });
+        }
+        
+        // 統計分析の進捗イベント
+        socket.on('stats_progress', function(data) {
+            const textElem = document.getElementById('statsProgressText');
+            const barElem = document.getElementById('statsProgressBar');
+            if (textElem) {
+                textElem.textContent = `操作数 ${data.operation_count} を分析中... (${data.current}/${data.total})`;
+            }
+            if (barElem) {
+                barElem.style.width = data.percent + '%';
+            }
+            updateStatsStatus({
+                state: '実行中',
+                current: data.current,
+                total: data.total,
+                opCount: data.operation_count,
+                message: `ops ${data.operation_count} / ${data.total}`
+            });
+        });
+        
+        socket.on('stats_complete', function(data) {
+            document.getElementById('statsProgress').style.display = 'none';
+            
+            // Base64デコードしてダウンロード
+            const byteCharacters = atob(data.data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showStatus('Excelファイルをダウンロードしました', 'success');
+            updateStatsStatus({ state: '完了', current: data.total || 0, total: data.total || 0, opCount: null, message: 'Excel生成完了' });
+        });
+        
+        socket.on('stats_error', function(data) {
+            document.getElementById('statsProgress').style.display = 'none';
+            showStatus(data.error, 'error');
+            updateStatsStatus({ state: 'エラー', current: 0, total: 0, opCount: null, message: data.error });
+        });
+        
+        function cancelStatsAnalysis() {
+            socket.emit('cancel_stats_analysis');
+            document.getElementById('statsProgress').style.display = 'none';
+            showStatus('統計分析をキャンセルしました', 'info');
+            updateStatsStatus({ state: 'キャンセル', current: 0, total: 0, opCount: null });
+        }
+        
+        // ランダムデータ収集機能
+        function getSelectedRandomAllowedOperations() {
+            return Array.from(document.querySelectorAll('input[name="randomAllowedOp"]:checked'))
+                .map(el => el.value);
+        }
+
+        async function startRandomDataCollection() {
+            const numOps = parseInt(document.getElementById('randomOpsCount').value);
+            const seedInput = document.getElementById('randomSeed').value;
+            const seed = seedInput ? parseInt(seedInput) : null;
+            const allowedOps = getSelectedRandomAllowedOperations();
+            
+            // バリデーション
+            if (!numOps || numOps < 1 || numOps > 10000) {
+                showStatus('操作回数は1-10000の範囲で指定してください', 'error');
+                return;
+            }
+
+            if (!allowedOps || allowedOps.length === 0) {
+                showStatus('使用する操作を1つ以上選択してください', 'error');
+                return;
+            }
+            
+            // 警告表示
+            if (numOps > 1000) {
+                const confirmed = await showConfirm(
+                    `${numOps}回の操作を実行します。処理に時間がかかる可能性がありますが続行しますか？`,
+                    'データ収集の確認',
+                    { confirmText: '実行', cancelText: 'キャンセル' }
+                );
+                if (!confirmed) {
+                    return;
+                }
+            }
+            
+            // UI更新
+            const progressDiv = document.getElementById('randomDataProgress');
+            const cancelBtn = document.getElementById('cancelRandomDataBtn');
+            progressDiv.style.display = 'block';
+            cancelBtn.style.display = 'block';
+            updateRandomStatus({
+                state: '実行中',
+                current: 0,
+                total: numOps,
+                speed: null,
+                elapsed: 0,
+                eta: null,
+                message: '準備中'
+            });
+            
+            // WebSocket経由でデータ収集開始
+            socket.emit('start_random_data_collection', {
+                num_operations: numOps,
+                seed: seed,
+                allowed_operations: allowedOps
+            });
+        }
+        
+        function cancelRandomDataCollection() {
+            socket.emit('cancel_random_data_collection');
+            document.getElementById('randomDataProgress').style.display = 'none';
+            document.getElementById('cancelRandomDataBtn').style.display = 'none';
+            showStatus('データ収集をキャンセルしました', 'info');
+            updateRandomStatus({ state: 'キャンセル', current: 0, total: 0, speed: null, elapsed: 0, eta: null });
+        }
+
+        function formatSeconds(sec) {
+            if (!sec && sec !== 0) return '-';
+            if (sec < 60) return `${sec.toFixed(1)}s`;
+            const m = Math.floor(sec / 60);
+            const s = sec % 60;
+            return `${m}m ${s.toFixed(0)}s`;
+        }
+
+        function updateRandomStatus({state, current, total, speed, elapsed, eta, message}) {
+            const stateElem = document.getElementById('randomStatusState');
+            const progElem = document.getElementById('randomStatusProgress');
+            const speedElem = document.getElementById('randomStatusSpeed');
+            const elapsedElem = document.getElementById('randomStatusElapsed');
+            const etaElem = document.getElementById('randomStatusEta');
+            const logElem = document.getElementById('randomStatusLog');
+            if (stateElem) stateElem.textContent = state || '-';
+            if (progElem) progElem.textContent = (total || total === 0) ? `${current}/${total}` : `${current}`;
+            if (speedElem) speedElem.textContent = (speed || speed === 0) ? `${speed.toFixed(1)} ops/s` : '-';
+            if (elapsedElem) elapsedElem.textContent = (elapsed || elapsed === 0) ? formatSeconds(elapsed) : '-';
+            if (etaElem) etaElem.textContent = (eta || eta === 0) ? formatSeconds(eta) : '-';
+            if (logElem) logElem.textContent = message || '-';
+        }
+
+        function updateStatsStatus({state, current, total, opCount, message}) {
+            const stateElem = document.getElementById('statsStatusState');
+            const progElem = document.getElementById('statsStatusProgress');
+            const logElem = document.getElementById('statsStatusLog');
+            if (stateElem) stateElem.textContent = state || '-';
+            if (progElem) {
+                if (current !== undefined && total !== undefined) {
+                    progElem.textContent = opCount ? `ops ${opCount}: ${current}/${total}` : `${current}/${total}`;
+                } else {
+                    progElem.textContent = opCount || '-';
+                }
+            }
+            if (logElem) logElem.textContent = message || '-';
+        }
+
+        function updateBatchStatus({state, detail, message}) {
+            const stateElem = document.getElementById('batchStatusState');
+            const detailElem = document.getElementById('batchStatusDetail');
+            const logElem = document.getElementById('batchStatusLog');
+            if (stateElem) stateElem.textContent = state || '-';
+            if (detailElem) detailElem.textContent = detail || '-';
+            if (logElem) logElem.textContent = message || detail || '-';
+        }
+
+        // ライブ活動ログ
+        const activityBuffer = [];
+        function formatActivityTime(ts) {
+            const d = new Date((ts || Date.now() / 1000) * 1000);
+            return d.toLocaleTimeString('ja-JP', { hour12: false });
+        }
+        function renderActivityFeed() {
+            const list = document.getElementById('activityFeedList');
+            if (!list) return;
+            list.innerHTML = '';
+            activityBuffer.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'activity-item';
+                const time = document.createElement('div');
+                time.className = 'activity-time';
+                time.textContent = formatActivityTime(item.timestamp);
+                const body = document.createElement('div');
+                body.className = 'activity-body';
+                const tag = document.createElement('div');
+                tag.className = 'activity-tag';
+                const pill = document.createElement('span');
+                pill.className = 'activity-pill' + (item.level === 'warning' ? ' warn' : item.level === 'error' ? ' error' : '');
+                pill.textContent = (item.tag || 'SYS').toUpperCase();
+                const msg = document.createElement('span');
+                msg.className = 'activity-message';
+                msg.textContent = item.message || '';
+                tag.appendChild(pill);
+                tag.appendChild(msg);
+                body.appendChild(tag);
+                if (item.detail) {
+                    const detail = document.createElement('div');
+                    detail.className = 'activity-detail';
+                    detail.textContent = typeof item.detail === 'string' ? item.detail : JSON.stringify(item.detail);
+                    body.appendChild(detail);
+                }
+                row.appendChild(time);
+                row.appendChild(body);
+                list.appendChild(row);
+            });
+        }
+        function addActivity(entry) {
+            if (!entry) return; // safety for malformed events
+            entry = entry || {};
+            activityBuffer.unshift({
+                tag: entry.tag,
+                message: entry.message,
+                detail: entry.detail,
+                level: entry.level || 'info',
+                timestamp: entry.timestamp || Date.now() / 1000,
+            });
+            if (activityBuffer.length > 50) activityBuffer.pop();
+            renderActivityFeed();
+        }
+        socket.on('activity_log', addActivity);
+
+        function updateServerStatus(stateText, timeObj) {
+            const label = document.getElementById('serverStatusLabel');
+            const ping = document.getElementById('serverStatusPing');
+            if (label) label.textContent = stateText || '-';
+            if (ping && timeObj) ping.textContent = new Date(timeObj).toLocaleTimeString('ja-JP', { hour12: false });
+        }
+
+        function toggleStatusRow() {
+            const row = document.getElementById('statusRow');
+            const btn = document.getElementById('statusRowToggleBtn');
+            if (!row || !btn) return;
+            row.classList.toggle('collapsed');
+            const collapsed = row.classList.contains('collapsed');
+            btn.classList.toggle('collapsed', collapsed);
+        }
+
+        // クライアント側エラー監視（止まり原因の把握用）
+        window.addEventListener('error', (e) => {
+            addActivity({ tag: 'client', level: 'error', message: 'JS error', detail: e.message });
+        });
+        window.addEventListener('unhandledrejection', (e) => {
+            addActivity({ tag: 'client', level: 'error', message: 'Promise rejection', detail: e.reason ? e.reason.toString() : 'unknown' });
+        });
+        socket.on('connect_error', (err) => {
+            addActivity({ tag: 'socket', level: 'error', message: 'connect_error', detail: err ? err.message : '' });
+            updateServerStatus('未接続', new Date());
+        });
+        socket.on('disconnect', (reason) => {
+            addActivity({ tag: 'socket', level: 'warning', message: 'disconnect', detail: reason });
+            updateServerStatus('切断', new Date());
+        });
+        socket.on('reconnect_error', (err) => {
+            addActivity({ tag: 'socket', level: 'error', message: 'reconnect_error', detail: err ? err.message : '' });
+            updateServerStatus('再接続失敗', new Date());
+        });
+        
+        // ランダムデータ収集の進捗イベント
+        socket.on('random_data_progress', function(data) {
+            const messageElem = document.getElementById('randomDataProgressMessage');
+            const barElem = document.getElementById('randomDataProgressBar');
+            if (messageElem) {
+                messageElem.textContent = data.message;
+            }
+            if (barElem) {
+                barElem.style.width = data.percent + '%';
+                barElem.textContent = data.percent + '%';
+            }
+            updateRandomStatus({
+                state: '実行中',
+                current: data.current,
+                total: data.total,
+                speed: data.ops_per_sec,
+                elapsed: data.elapsed_sec,
+                eta: data.eta_sec,
+                message: data.message
+            });
+        });
+        
+        socket.on('random_data_complete', function(data) {
+            document.getElementById('randomDataProgress').style.display = 'none';
+            document.getElementById('cancelRandomDataBtn').style.display = 'none';
+            
+            // Base64デコードしてダウンロード
+            const byteCharacters = atob(data.data);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], {
+                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            });
+            
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            showStatus(`Excelファイルをダウンロードしました（シード: ${data.seed}）`, 'success');
+            updateRandomStatus({
+                state: '完了',
+                current: data.num_operations,
+                total: data.num_operations,
+                speed: null,
+                elapsed: null,
+                eta: null
+            });
+        });
+        
+        socket.on('random_data_error', function(data) {
+            document.getElementById('randomDataProgress').style.display = 'none';
+            document.getElementById('cancelRandomDataBtn').style.display = 'none';
+            showStatus(data.error, 'error');
+            updateRandomStatus({ state: 'エラー', current: 0, total: 0, speed: null, elapsed: 0, eta: null });
+        });
+        
+        async function exportResults(format) {
+            if (!batchResultsCache) {
+                showStatus('先にバッチ分析を実行してください', 'error');
+                return;
+            }
+            
+            showStatus(`${format.toUpperCase()}形式でエクスポート中...`, 'info');
+            
+            try {
+                const response = await fetch(`/api/batch/export/${format}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(batchResultsCache)
+                });
+                
+                if (!response.ok) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'エクスポートに失敗しました');
+                }
+                
+                // ファイルダウンロード
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const minOps = batchResultsCache.operations_range[0];
+                const maxOps = batchResultsCache.operations_range[1];
+                a.download = `cube_analysis_${batchResultsCache.num_trials}trials_${minOps}-${maxOps}ops.${format === 'excel' ? 'xlsx' : 'csv'}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+            } catch (error) {
+                showStatus(error.message, 'error');
+            }
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.className = `status-message status-${type}`;
+            statusDiv.textContent = message;
+            statusDiv.style.display = 'block';
+            
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Visual cube net update function
+        function updateVisualCube(faces) {
+            const netContainer = document.getElementById('visualCubeNet');
+            netContainer.innerHTML = '';
+            
+            // 面の配置: U(上), L(左), F(前), R(右), D(下), B(後)
+            const faceOrder = ['U', 'B', 'L', 'F', 'R', 'D'];
+            const faceClasses = {
+                'U': 'face-U',
+                'L': 'face-L',
+                'F': 'face-F',
+                'R': 'face-R',
+                'D': 'face-D',
+                'B': 'face-B'
+            };
+            
+            for (const faceName of faceOrder) {
+                const faceDiv = document.createElement('div');
+                faceDiv.className = `face ${faceClasses[faceName]}`;
+                
+                const grid = faces[faceName];
+                for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        const cubie = document.createElement('div');
+                        cubie.className = `cubie color-${grid[i][j]}`;
+                        faceDiv.appendChild(cubie);
+                    }
+                }
+                
+                netContainer.appendChild(faceDiv);
+            }
+        }
+        
+        // 逆操作を生成
+        function generateReverseSequence() {
+            if (!currentState || !currentState.history || currentState.history.length === 0) {
+                showStatus('操作履歴がありません', 'error');
+                return;
+            }
+            
+            // 逆操作のマッピング
+            const reverseMap = {
+                // 基本回転（両記法対応）
+                'R': 'Rp', 'Rp': 'R', "R'": 'R', 'R2': 'R2',
+                'L': 'Lp', 'Lp': 'L', "L'": 'L', 'L2': 'L2',
+                'U': 'Up', 'Up': 'U', "U'": 'U', 'U2': 'U2',
+                'D': 'Dp', 'Dp': 'D', "D'": 'D', 'D2': 'D2',
+                'F': 'Fp', 'Fp': 'F', "F'": 'F', 'F2': 'F2',
+                'B': 'Bp', 'Bp': 'B', "B'": 'B', 'B2': 'B2',
+                // 内側層
+                'r': 'rp', 'rp': 'r', "r'": 'r', 'r2': 'r2',
+                'l': 'lp', 'lp': 'l', "l'": 'l', 'l2': 'l2',
+                'u': 'up', 'up': 'u', "u'": 'u', 'u2': 'u2',
+                'd': 'dp', 'dp': 'd', "d'": 'd', 'd2': 'd2',
+                'f': 'fp', 'fp': 'f', "f'": 'f', 'f2': 'f2',
+                'b': 'bp', 'bp': 'b', "b'": 'b', 'b2': 'b2',
+                // ワイド回転
+                'Rw': 'Rwp', 'Rwp': 'Rw', "Rw'": 'Rw', 'Rw2': 'Rw2',
+                'Lw': 'Lwp', 'Lwp': 'Lw', "Lw'": 'Lw', 'Lw2': 'Lw2',
+                'Uw': 'Uwp', 'Uwp': 'Uw', "Uw'": 'Uw', 'Uw2': 'Uw2',
+                'Dw': 'Dwp', 'Dwp': 'Dw', "Dw'": 'Dw', 'Dw2': 'Dw2',
+                'Fw': 'Fwp', 'Fwp': 'Fw', "Fw'": 'Fw', 'Fw2': 'Fw2',
+                'Bw': 'Bwp', 'Bwp': 'Bw', "Bw'": 'Bw', 'Bw2': 'Bw2',
+                // スライス
+                'M': 'Mp', 'Mp': 'M', "M'": 'M', 'M2': 'M2',
+                'E': 'Ep', 'Ep': 'E', "E'": 'E', 'E2': 'E2',
+                'S': 'Sp', 'Sp': 'S', "S'": 'S', 'S2': 'S2',
+                // 全体回転
+                'x': 'xp', 'xp': 'x', "x'": 'x', 'x2': 'x2',
+                'y': 'yp', 'yp': 'y', "y'": 'y', 'y2': 'y2',
+                'z': 'zp', 'zp': 'z', "z'": 'z', 'z2': 'z2'
+            };
+            
+            // 履歴を逆順にして、各操作を逆操作に変換
+            const reversed = currentState.history
+                .slice()
+                .reverse()
+                .map(op => reverseMap[op] || op)
+                .join(' ');
+            
+            document.getElementById('reverseSequenceText').textContent = reversed;
+            document.getElementById('reverseSequence').style.display = 'block';
+        }
+        
+        // カスタム操作入力欄に貼り付け
+        function copyToSequenceInput() {
+            const reverseText = document.getElementById('reverseSequenceText').textContent;
+            if (reverseText === '-' || !reverseText) {
+                showStatus('先に逆操作を生成してください', 'error');
+                return;
+            }
+            
+            document.getElementById('sequenceInput').value = reverseText;
+            
+            // 状態タブに切り替え
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab')[0].classList.add('active');
+            document.getElementById('stateTab').classList.add('active');
+            
+            // 入力欄にフォーカス
+            document.getElementById('sequenceInput').focus();
+        }
+        
+        // テキスト全選択
+        function selectText(element) {
+            const range = document.createRange();
+            range.selectNodeContents(element);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+        
+        // Allow Enter key in sequence input
+        document.getElementById('sequenceInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') executeSequence();
+        });
+        
+        // ========== 検査機能 ==========
+        
+        // エッジペアリストを読み込む
+        async function loadEdgePairList() {
+            try {
+                const response = await fetch('/api/inspector/edge_pairs');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const selector = document.getElementById('edgePairSelector');
+                    selector.innerHTML = '<option value="">選択してください...</option>';
+                    
+                    data.pairs.forEach(pair => {
+                        const option = document.createElement('option');
+                        option.value = pair;
+                        option.textContent = pair;
+                        selector.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Edge pair list load error:', error);
+            }
+        }
+        
+        // 全キューブレット情報を読み込む
+        async function loadAllCubelets() {
+            const resultsDiv = document.getElementById('inspectorResults');
+            resultsDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><p style="font-size: 1.2em;">読み込み中...</p></div>';
+            
+            try {
+                const response = await fetch('/api/inspector/cubelets');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayCubeletsInfo(data);
+                } else {
+                    resultsDiv.innerHTML = `<div style="color: #dc3545; padding: 20px;">エラー: ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('Cubelets load error:', error);
+                resultsDiv.innerHTML = '<div style="color: #dc3545; padding: 20px;">読み込みエラー</div>';
+            }
+        }
+        
+        // キューブレット情報を表示
+        function displayCubeletsInfo(data) {
+            const resultsDiv = document.getElementById('inspectorResults');
+            
+            let html = `
+                <h3 style="color: var(--text-primary); margin-bottom: 20px;">全キューブレット情報</h3>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px;">
+                    <div class="stat-card">
+                        <h4>コーナー</h4>
+                        <div class="value">${data.by_type.corner.count}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>エッジ</h4>
+                        <div class="value">${data.by_type.edge.count}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>センター</h4>
+                        <div class="value">${data.by_type.center.count}</div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label style="color: var(--text-primary); margin-right: 10px;">フィルター:</label>
+                    <select id="cubeletTypeFilter" onchange="filterCubelets('${JSON.stringify(data).replace(/'/g, "\\'")}')">
+                        <option value="all">全て (${data.total_count}個)</option>
+                        <option value="corner">コーナー (${data.by_type.corner.count}個)</option>
+                        <option value="edge">エッジ (${data.by_type.edge.count}個)</option>
+                        <option value="center">センター (${data.by_type.center.count}個)</option>
+                        <option value="moved">移動したもの</option>
+                    </select>
+                </div>
+                
+                <div id="cubeletsList" style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; max-height: 500px; overflow-y: auto;">
+            `;
+            
+            // テーブルヘッダー
+            html += `
+                <table style="width: 100%; border-collapse: collapse; color: var(--text-primary); font-size: 0.9em;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--accent-color);">
+                            <th style="padding: 10px; text-align: left;">ID</th>
+                            <th style="padding: 10px; text-align: left;">タイプ</th>
+                            <th style="padding: 10px; text-align: center;">初期位置</th>
+                            <th style="padding: 10px; text-align: center;">現在位置</th>
+                            <th style="padding: 10px; text-align: right;">移動距離</th>
+                            <th style="padding: 10px; text-align: right;">回転角</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cubeletsTableBody">
+            `;
+            
+            // 移動距離でソート
+            const sorted = [...data.all_cubelets].sort((a, b) => b.displacement - a.displacement);
+            
+            sorted.forEach(cubelet => {
+                const initPos = `(${cubelet.initial_position[0].toFixed(1)}, ${cubelet.initial_position[1].toFixed(1)}, ${cubelet.initial_position[2].toFixed(1)})`;
+                const currPos = `(${cubelet.current_position[0].toFixed(1)}, ${cubelet.current_position[1].toFixed(1)}, ${cubelet.current_position[2].toFixed(1)})`;
+                
+                html += `
+                    <tr data-type="${cubelet.type}" data-moved="${cubelet.displacement > 0.01}" style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 8px;">${cubelet.id}</td>
+                        <td style="padding: 8px;">${cubelet.type}</td>
+                        <td style="padding: 8px; text-align: center; font-family: monospace; font-size: 0.85em;">${initPos}</td>
+                        <td style="padding: 8px; text-align: center; font-family: monospace; font-size: 0.85em;">${currPos}</td>
+                        <td style="padding: 8px; text-align: right; font-weight: ${cubelet.displacement > 0.01 ? 'bold' : 'normal'};">
+                            ${cubelet.displacement.toFixed(4)}
+                        </td>
+                        <td style="padding: 8px; text-align: right;">${cubelet.rotation_angle.toFixed(2)}°</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        // キューブレットのフィルタリング
+        function filterCubelets(dataStr) {
+            const filter = document.getElementById('cubeletTypeFilter').value;
+            const rows = document.querySelectorAll('#cubeletsTableBody tr');
+            
+            rows.forEach(row => {
+                if (filter === 'all') {
+                    row.style.display = '';
+                } else if (filter === 'moved') {
+                    row.style.display = row.dataset.moved === 'true' ? '' : 'none';
+                } else {
+                    row.style.display = row.dataset.type === filter ? '' : 'none';
+                }
+            });
+        }
+        
+        // 検査タブの更新（リアルタイム）
+        async function updateInspectorTab() {
+            console.log('[Inspector] updateInspectorTab called');
+            
+            // 全キューブレット表示が開いている場合は更新
+            const cubeletsTableBody = document.getElementById('cubeletsTableBody');
+            if (cubeletsTableBody && cubeletsTableBody.children.length > 0) {
+                console.log('[Inspector] Updating all cubelets table');
+                await loadAllCubelets();
+            }
+            
+            // エッジペア検査結果が表示されている場合は更新
+            const pairSelector = document.getElementById('edgePairSelector');
+            if (pairSelector && pairSelector.value) {
+                console.log('[Inspector] Updating edge pair inspection:', pairSelector.value);
+                await inspectSelectedPair();
+            }
+        }
+        
+        // 選択されたエッジペアを検査
+        async function inspectSelectedPair() {
+            const pairId = document.getElementById('edgePairSelector').value;
+            
+            if (!pairId) {
+                showStatus('エッジペアを選択してください', 'error');
+                return;
+            }
+            
+            const resultsDiv = document.getElementById('inspectorResults');
+            // 初回のみローディング表示、更新時は既存の内容を保持
+            if (!resultsDiv.querySelector('.stat-card')) {
+                resultsDiv.innerHTML = '<div style="text-align: center; padding: 40px;"><p style="font-size: 1.2em;">検査中...</p></div>';
+            }
+            
+            try {
+                const response = await fetch(`/api/inspector/edge_pair/${pairId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayEdgePairInspection(data);
+                } else {
+                    resultsDiv.innerHTML = `<div style="color: #dc3545; padding: 20px;">エラー: ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('Edge pair inspection error:', error);
+                resultsDiv.innerHTML = '<div style="color: #dc3545; padding: 20px;">検査エラー</div>';
+            }
+        }
+        
+        // エッジペア検査結果を表示
+        function displayEdgePairInspection(data) {
+            const resultsDiv = document.getElementById('inspectorResults');
+            
+            let html = `
+                <h3 style="color: var(--text-primary); margin-bottom: 20px;">エッジペア詳細検査: ${data.pair_id}</h3>
+                
+                <!-- サマリーカード -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px;">
+                    <div class="stat-card">
+                        <h4>初期距離</h4>
+                        <div class="value" style="font-size: 1.5em;">${data.pair_info.initial_distance.toFixed(4)}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>現在距離</h4>
+                        <div class="value" style="font-size: 1.5em; color: ${data.pair_info.distance_change === 0 ? 'var(--text-primary)' : '#ffd93d'};">
+                            ${data.pair_info.current_distance.toFixed(4)}
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <h4>距離変化</h4>
+                        <div class="value" style="font-size: 1.5em; color: ${data.pair_info.distance_change > 0 ? '#ff6b6b' : data.pair_info.distance_change < 0 ? '#51cf66' : 'var(--text-primary)'};">
+                            ${data.pair_info.distance_change >= 0 ? '+' : ''}${data.pair_info.distance_change.toFixed(4)}
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px;">
+                    <div class="stat-card">
+                        <h4>同一面</h4>
+                        <div class="value" style="font-size: 1.5em;">${data.pair_info.same_face ? 'true' : 'false'}</div>
+                        ${data.pair_info.shared_face ? `<p style="margin-top: 5px; color: var(--text-secondary);">共有面: ${data.pair_info.shared_face}</p>` : ''}
+                    </div>
+                    <div class="stat-card">
+                        <h4>相対回転角</h4>
+                        <div class="value" style="font-size: 1.5em;">${data.pair_info.relative_rotation_angle.toFixed(2)}°</div>
+                    </div>
+                </div>
+                
+                <!-- Edge 1 詳細 -->
+                <div style="background: var(--bg-secondary); padding: 20px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #667eea;">
+                    <h4 style="color: var(--accent-color); margin-bottom: 15px;">Edge 1: ${data.edge1.id}</h4>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; color: var(--text-primary);">
+                        <div>
+                            <p style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 5px;">初期位置</p>
+                            <p style="font-family: monospace;">(${data.edge1.initial_position[0].toFixed(2)}, ${data.edge1.initial_position[1].toFixed(2)}, ${data.edge1.initial_position[2].toFixed(2)})</p>
+                        </div>
+                        <div>
+                            <p style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 5px;">現在位置</p>
+                            <p style="font-family: monospace;">(${data.edge1.current_position[0].toFixed(2)}, ${data.edge1.current_position[1].toFixed(2)}, ${data.edge1.current_position[2].toFixed(2)})</p>
+                        </div>
+                        <div>
+                            <p style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 5px;">移動距離</p>
+                            <p style="font-weight: bold;">${data.edge1.displacement.toFixed(4)}</p>
+                        </div>
+                        <div>
+                            <p style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 5px;">回転角度</p>
+                            <p style="font-weight: bold;">${data.edge1.rotation_angle.toFixed(2)}°</p>
+                        </div>
+                        ${data.edge1.rotation_axis ? `
+                        <div style="grid-column: 1 / -1;">
+                            <p style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 5px;">回転軸</p>
+                            <p style="font-family: monospace;">(${data.edge1.rotation_axis[0].toFixed(3)}, ${data.edge1.rotation_axis[1].toFixed(3)}, ${data.edge1.rotation_axis[2].toFixed(3)})</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <!-- Edge 2 詳細 -->
+                <div style="background: var(--bg-secondary); padding: 20px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #51cf66;">
+                    <h4 style="color: #51cf66; margin-bottom: 15px;">Edge 2: ${data.edge2.id}</h4>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; color: var(--text-primary);">
+                        <div>
+                            <p style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 5px;">初期位置</p>
+                            <p style="font-family: monospace;">(${data.edge2.initial_position[0].toFixed(2)}, ${data.edge2.initial_position[1].toFixed(2)}, ${data.edge2.initial_position[2].toFixed(2)})</p>
+                        </div>
+                        <div>
+                            <p style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 5px;">現在位置</p>
+                            <p style="font-family: monospace;">(${data.edge2.current_position[0].toFixed(2)}, ${data.edge2.current_position[1].toFixed(2)}, ${data.edge2.current_position[2].toFixed(2)})</p>
+                        </div>
+                        <div>
+                            <p style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 5px;">移動距離</p>
+                            <p style="font-weight: bold;">${data.edge2.displacement.toFixed(4)}</p>
+                        </div>
+                        <div>
+                            <p style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 5px;">回転角度</p>
+                            <p style="font-weight: bold;">${data.edge2.rotation_angle.toFixed(2)}°</p>
+                        </div>
+                        ${data.edge2.rotation_axis ? `
+                        <div style="grid-column: 1 / -1;">
+                            <p style="color: var(--text-secondary); font-size: 0.85em; margin-bottom: 5px;">回転軸</p>
+                            <p style="font-family: monospace;">(${data.edge2.rotation_axis[0].toFixed(3)}, ${data.edge2.rotation_axis[1].toFixed(3)}, ${data.edge2.rotation_axis[2].toFixed(3)})</p>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <!-- テキストレポート -->
+                <details style="margin-top: 20px;">
+                    <summary style="cursor: pointer; padding: 10px; background: var(--bg-secondary); border-radius: 6px; color: var(--text-primary);">
+                        テキストレポート表示
+                    </summary>
+                    <pre style="background: var(--bg-primary); padding: 15px; border-radius: 6px; margin-top: 10px; overflow-x: auto; color: var(--text-primary); font-size: 0.85em; line-height: 1.5;">${data.text_report}</pre>
+                </details>
+            `;
+            
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
+
+
