@@ -22,5 +22,5 @@ htmlcov/
 *.swo
 .env
 .env.*
-*.env
-Thumbs.db.git_old_*/
+# Old git metadata backups (local)
+.git_old*/
