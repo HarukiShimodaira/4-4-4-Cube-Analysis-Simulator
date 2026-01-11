@@ -59,7 +59,12 @@ python run_web_gui.py
 
 ### 2) Google ColabでWeb GUIを使用
 
-`Run in Colab.ipynb` をColabで開いて、セル1→セル2の順に実行してください。
+Colab用ノートブックをColabで開いて、セル1→セル2の順に実行してください。
+
+ngrokトークン（authtoken）の取得:
+
+1. https://dashboard.ngrok.com/ にログイン
+2. Dashboard の **Your Authtoken** をコピー
 
 Colabでのngrokトークンの渡し方:
 
