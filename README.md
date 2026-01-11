@@ -57,7 +57,19 @@ set SECRET_KEY=change-me
 python run_web_gui.py
 ```
 
-### 2) CLIを使用(非推奨)
+### 2) Google ColabでWeb GUIを使用
+
+`Run in Colab.ipynb` をColabで開いて、セル1→セル2の順に実行してください。
+
+Colabでのngrokトークンの渡し方:
+
+1. **ColabのSecrets** に `NGROK_AUTHTOKEN` を登録
+2. 環境変数 `NGROK_AUTHTOKEN` を設定
+3. セル2の入力プロンプトに貼り付け（画面には表示されません）
+
+起動後はセル2の出力に表示されるURL（またはQRコード）からアクセスできます。
+
+### 3) CLIを使用(非推奨)
 
 ```bash
 python -m src.cli -i
